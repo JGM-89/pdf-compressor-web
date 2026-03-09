@@ -206,6 +206,16 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
       }
     } catch (e) { /* ignore */ }
 
+    // Detect Photoshop composite images (/Matte + /SMask = pre-multiplied alpha composite)
+    var hasMatte = !!dict.get(PDFName.of('Matte'));
+    var smaskRef = null;
+    if (hasMatte) {
+      var smaskVal = dict.get(PDFName.of('SMask'));
+      if (smaskVal && typeof smaskVal.objectNumber === 'number') {
+        smaskRef = smaskVal;
+      }
+    }
+
     result.images.push({
       ref: ref,
       width: width,
@@ -215,7 +225,9 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
       bpc: bpc || 8,
       rawSize: size,
       isJpeg: filterName === 'DCTDecode',
-      isMask: isMask
+      isMask: isMask,
+      hasMatte: hasMatte,
+      smaskRef: smaskRef
     });
     return;
   }

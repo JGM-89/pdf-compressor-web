@@ -82,7 +82,7 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
       ' size=' + imgInfo.rawSize + 'b ---');
 
     try {
-      var didReplace = await reencodeImage(pdfDoc, imgInfo, quality, targetDPI);
+      var didReplace = await reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis);
       if (didReplace) {
         replaced++;
         _compressLog.push('  \u2713 REPLACED');
@@ -396,10 +396,30 @@ function extractGrayChannel(pixels, count) {
  * Detects grayscale images and writes them as DeviceGray + FlateDecode.
  * @returns {boolean} true if the image was replaced
  */
-async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
+async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
   var PDFName = PDFLib.PDFName;
   var PDFRawStream = PDFLib.PDFRawStream;
   var log = _compressLog;
+
+  // Photoshop composite images (/Matte + /SMask) are redundant when
+  // the PDF has separate layer masks. Replace with a 1×1 white stub.
+  if (imgInfo.hasMatte && analysis && analysis.photoshopRefs && analysis.photoshopRefs.length > 0) {
+    log.push('  Photoshop composite (has /Matte) \u2192 replacing with 1\u00d71 stub');
+    var stubBytes = new Uint8Array([255, 255, 255]);
+    var stubDict = pdfDoc.context.obj({});
+    stubDict.set(PDFName.of('Type'), PDFName.of('XObject'));
+    stubDict.set(PDFName.of('Subtype'), PDFName.of('Image'));
+    stubDict.set(PDFName.of('Width'), pdfDoc.context.obj(1));
+    stubDict.set(PDFName.of('Height'), pdfDoc.context.obj(1));
+    stubDict.set(PDFName.of('ColorSpace'), PDFName.of('DeviceRGB'));
+    stubDict.set(PDFName.of('BitsPerComponent'), pdfDoc.context.obj(8));
+    stubDict.set(PDFName.of('Length'), pdfDoc.context.obj(3));
+    // No Filter, no SMask, no Matte — clean stub
+    var stubStream = new PDFRawStream(stubDict, stubBytes);
+    pdfDoc.context.assign(imgInfo.ref, stubStream);
+    log.push('  Saved ' + imgInfo.rawSize + 'b \u2192 3b');
+    return true;
+  }
 
   var obj = pdfDoc.context.lookup(imgInfo.ref);
   if (!obj) { log.push('  lookup(' + imgInfo.ref + ') returned null'); return false; }
