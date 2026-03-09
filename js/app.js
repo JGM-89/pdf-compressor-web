@@ -579,10 +579,47 @@
       reductionEl.className = 'done-value done-value-warning';
     }
 
+    // Before/after comparison bar
+    updateComparisonBar(origSize, newSize, reduction);
+
     showScreen('done');
 
     // Auto-trigger download
     downloadBlob(state.resultBytes, state.resultFilename);
+  }
+
+  function updateComparisonBar(origSize, newSize, reduction) {
+    var origBar = $('#compare-bar-original');
+    var newBar = $('#compare-bar-new');
+    var savings = $('#compare-savings');
+
+    if (!origBar || !newBar || !savings) return;
+
+    // Original bar is always 100%
+    origBar.style.width = '100%';
+
+    // New bar as percentage of original
+    var pct = origSize > 0 ? (newSize / origSize) * 100 : 100;
+    pct = Math.min(100, Math.max(0, pct));
+
+    // Reset then animate
+    newBar.style.width = '0%';
+    setTimeout(function() {
+      newBar.style.width = pct + '%';
+    }, 100);
+
+    // Color
+    newBar.classList.toggle('warning', reduction < 1);
+
+    // Savings text
+    if (reduction >= 1) {
+      var saved = origSize - newSize;
+      savings.innerHTML = 'You saved <strong>' + formatBytes(saved) + '</strong> (' + reduction.toFixed(0) + '% smaller)';
+    } else if (reduction > -1) {
+      savings.innerHTML = 'File size is about the same \u2014 this PDF was already well-optimised.';
+    } else {
+      savings.innerHTML = '<strong class="warning">File got larger</strong> \u2014 try a different compression mode.';
+    }
   }
 
   // ── Button bindings ────────────────────────────────────────────────

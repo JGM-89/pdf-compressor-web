@@ -46,6 +46,13 @@
   </script>
 
   <link rel="stylesheet" href="css/styles.css">
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b1929">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
 </head>
 <body>
 
@@ -293,6 +300,19 @@
         </div>
       </div>
 
+      <!-- Before / After visual comparison -->
+      <div id="compare-bar-wrap" class="compare-bar-wrap">
+        <div class="compare-label-row">
+          <span>Original</span>
+          <span>Compressed</span>
+        </div>
+        <div class="compare-bar">
+          <div id="compare-bar-original" class="compare-bar-original"></div>
+          <div id="compare-bar-new" class="compare-bar-new"></div>
+        </div>
+        <p id="compare-savings" class="compare-savings"></p>
+      </div>
+
       <div class="action-row">
         <button id="btn-download" class="btn btn-primary">&#8615; Download</button>
         <button id="btn-another" class="btn btn-secondary">Compress another &rarr;</button>
@@ -441,5 +461,12 @@
   <script src="js/flatten.js"></script>
   <script src="js/compressor.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- PWA: Service Worker registration + Install prompt -->
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  }
+  </script>
 </body>
 </html>
