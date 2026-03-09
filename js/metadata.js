@@ -1,14 +1,15 @@
 /**
- * Mode 1: Lossless metadata stripping.
- * Removes XMP metadata streams and clears the Info dictionary.
+ * Mode 1: Lossless cleanup.
+ * Removes XMP metadata streams, Photoshop data blocks,
+ * and clears the Info dictionary.
  */
 
 /* global PDFLib, yieldToUI */
 
 /**
- * Strip metadata from a PDF.
+ * Strip metadata and Photoshop data from a PDF.
  * @param {Uint8Array} pdfBytes   - Original PDF bytes
- * @param {object}     analysis   - Analysis result (unused here but kept for API consistency)
+ * @param {object}     analysis   - Analysis result (provides photoshopRefs for removal)
  * @param {function}   onProgress - callback(fraction, statusText)
  * @returns {Promise<Uint8Array>} Compressed PDF bytes
  */
@@ -72,6 +73,18 @@ async function compressMetadata(pdfBytes, analysis, onProgress) {
 
     if (i % 50 === 0) {
       await yieldToUI();
+    }
+  }
+
+  // Remove Photoshop resource data streams (8BIM blocks)
+  if (analysis.photoshopRefs && analysis.photoshopRefs.length > 0) {
+    onProgress(0.6, 'Removing Photoshop data\u2026');
+    for (var j = 0; j < analysis.photoshopRefs.length; j++) {
+      try {
+        pdfDoc.context.delete(analysis.photoshopRefs[j]);
+      } catch (e) {
+        // Skip refs that can't be deleted
+      }
     }
   }
 

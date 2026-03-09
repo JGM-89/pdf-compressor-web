@@ -209,11 +209,12 @@
   // ── Breakdown chart ────────────────────────────────────────────────
 
   var BREAKDOWN_CATEGORIES = [
-    { key: 'metadata', label: 'Duplicate metadata', color: 'var(--color-metadata)' },
-    { key: 'vector',   label: 'Vector artwork',     color: 'var(--color-vector)' },
-    { key: 'image',    label: 'Raster images',      color: 'var(--color-image)' },
-    { key: 'font',     label: 'Fonts',              color: 'var(--color-font)' },
-    { key: 'other',    label: 'Other',              color: 'var(--color-other)' }
+    { key: 'metadata',  label: 'Duplicate metadata', color: 'var(--color-metadata)' },
+    { key: 'photoshop', label: 'Photoshop data',     color: 'var(--color-photoshop)' },
+    { key: 'vector',    label: 'Vector artwork',     color: 'var(--color-vector)' },
+    { key: 'image',     label: 'Raster images',      color: 'var(--color-image)' },
+    { key: 'font',      label: 'Fonts',              color: 'var(--color-font)' },
+    { key: 'other',     label: 'Other',              color: 'var(--color-other)' }
   ];
 
   function buildBreakdownChart(analysis) {
@@ -318,7 +319,7 @@
           formatBytes(imgMinKB * 1024) + '). \'Flatten to images\' can reach ~' +
           formatBytes(flattenEstKB * 1024) + ' but text won\'t be selectable.';
       } else {
-        text = 'Metadata strip gives the best lossless result (' + formatBytes(metaKB * 1024) +
+        text = 'Lossless cleanup gives the best lossless result (' + formatBytes(metaKB * 1024) +
           '). For maximum compression, \'Flatten to images\' can reach ~' +
           formatBytes(flattenEstKB * 1024) + ' but text won\'t be selectable.';
       }
@@ -331,7 +332,7 @@
         '. Adjust quality and DPI for smaller files (down to ~' +
         formatBytes(imgMinKB * 1024) + '). Text and vectors stay untouched.';
     } else {
-      text = 'Metadata strip gives the best result (' + formatBytes(metaKB * 1024) + '). ';
+      text = 'Lossless cleanup gives the best result (' + formatBytes(metaKB * 1024) + '). ';
       if (!hasImages) {
         text += 'The file has few or no embedded images to compress further.';
       } else {

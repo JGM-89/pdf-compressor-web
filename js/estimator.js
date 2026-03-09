@@ -8,7 +8,9 @@
  * Just subtracts metadata stream bytes from total.
  */
 function estimateMetadataSize(analysis) {
-  return Math.max(1024, analysis.totalSize - analysis.categories.metadata.size);
+  var removable = analysis.categories.metadata.size +
+                  (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
+  return Math.max(1024, analysis.totalSize - removable);
 }
 
 /**

@@ -30,13 +30,15 @@ async function analyzePDF(pdfBytes, onProgress) {
     totalSize: pdfBytes.byteLength,
     pageCount: pdfDoc.getPageCount(),
     categories: {
-      metadata: { size: 0, count: 0 },
-      image:    { size: 0, count: 0 },
-      font:     { size: 0, count: 0 },
-      vector:   { size: 0, count: 0 },
-      other:    { size: 0, count: 0 }
+      metadata:  { size: 0, count: 0 },
+      photoshop: { size: 0, count: 0 },
+      image:     { size: 0, count: 0 },
+      font:      { size: 0, count: 0 },
+      vector:    { size: 0, count: 0 },
+      other:     { size: 0, count: 0 }
     },
-    images: [],       // detailed info for each image XObject
+    images: [],          // detailed info for each image XObject
+    photoshopRefs: [],   // refs of 8BIM streams for lossless removal
     hasText: false
   };
 
@@ -254,6 +256,21 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
       if (head.indexOf('/CIDInit') !== -1 || head.indexOf('begincmap') !== -1) {
         result.categories.font.size += size;
         result.categories.font.count++;
+        return;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // Photoshop resource data streams (8BIM signature, no Type/Subtype)
+  if (!type && !subtype && size >= 4) {
+    try {
+      if (obj.contents[0] === 0x38 &&   // '8'
+          obj.contents[1] === 0x42 &&   // 'B'
+          obj.contents[2] === 0x49 &&   // 'I'
+          obj.contents[3] === 0x4D) {   // 'M'
+        result.categories.photoshop.size += size;
+        result.categories.photoshop.count++;
+        result.photoshopRefs.push(ref);
         return;
       }
     } catch (e) { /* ignore */ }
