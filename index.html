@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Compressor</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-accent"></div>
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="header-title">PDF Compressor <span class="header-version">v1.0</span></h1>
+      </div>
+      <div class="header-right">
+        <span class="header-byline">by J.G.Moore</span>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+
+  <!-- Privacy banner -->
+  <div class="privacy-banner">
+    <span class="privacy-icon">&#128274;</span>
+    <span>Your files never leave your device &mdash; all processing happens in the browser.</span>
+  </div>
+
+  <main class="content">
+
+    <!-- Screen 1: Drop Zone -->
+    <div id="screen-drop" class="screen active">
+      <h2 class="screen-title">Select a PDF to compress</h2>
+      <p class="screen-subtitle">The tool analyses your PDF and shows real output sizes before you save anything.</p>
+
+      <div id="drop-zone" class="drop-zone" tabindex="0">
+        <div class="drop-zone-inner">
+          <div class="drop-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <rect x="12" y="4" width="24" height="32" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <path d="M18 14h12M18 20h12M18 26h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="24" cy="40" r="6" fill="var(--accent-blue)" opacity="0.2"/>
+              <path d="M24 37v6M21 40h6" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <p class="drop-text">Drop a PDF here or click to browse</p>
+          <p class="drop-hint">Maximum file size: 200 MB</p>
+        </div>
+        <input type="file" id="file-input" accept=".pdf" hidden>
+      </div>
+    </div>
+
+    <!-- Screen 2: Analyzing -->
+    <div id="screen-analyzing" class="screen">
+      <h2 class="screen-title">Analysing &amp; compressing&hellip;</h2>
+      <p id="analyze-status" class="screen-subtitle">Scanning file structure&hellip;</p>
+
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div id="analyze-progress-fill" class="progress-fill indeterminate"></div>
+        </div>
+      </div>
+
+      <p id="analyze-filename" class="filename-label"></p>
+    </div>
+
+    <!-- Screen 3: Report -->
+    <div id="screen-report" class="screen">
+      <!-- File info -->
+      <div class="file-info">
+        <h2 id="report-filename" class="file-info-name"></h2>
+        <div class="file-info-meta">
+          <span id="report-filesize" class="file-info-size"></span>
+          <span class="file-info-sep">&middot;</span>
+          <span id="report-pages" class="file-info-pages"></span>
+        </div>
+      </div>
+
+      <!-- Breakdown bar chart -->
+      <div class="section">
+        <h3 class="section-title">What's taking up space</h3>
+        <div class="breakdown-card">
+          <div id="breakdown-bar" class="breakdown-bar"></div>
+          <div id="breakdown-legend" class="breakdown-legend"></div>
+        </div>
+      </div>
+
+      <!-- Recommendation -->
+      <div id="recommendation-box" class="recommendation-box">
+        <div class="recommendation-header">&#10022; Recommendation</div>
+        <p id="recommendation-text" class="recommendation-text"></p>
+      </div>
+
+      <!-- Options -->
+      <h3 class="section-title">Choose a compression option</h3>
+
+      <!-- Option 1: Lossless cleanup -->
+      <div class="option-card" data-mode="metadata">
+        <div class="option-header">
+          <label class="option-radio">
+            <input type="radio" name="compress-mode" value="metadata">
+            <span class="radio-dot"></span>
+          </label>
+          <div class="option-title-group">
+            <span class="option-title">Lossless cleanup</span>
+            <span id="badge-metadata" class="badge badge-recommended" hidden>RECOMMENDED</span>
+          </div>
+          <span id="size-metadata" class="option-size"></span>
+        </div>
+        <p class="option-desc">Strips redundant metadata. No quality change. Instant.</p>
+      </div>
+
+      <!-- Option 2: Compress images -->
+      <div id="option-images-section" class="option-section">
+        <div class="section-divider"></div>
+        <h3 class="section-title">Or compress images (lossy)</h3>
+
+        <div class="option-card" data-mode="image-compress">
+          <div class="option-header">
+            <label class="option-radio">
+              <input type="radio" name="compress-mode" value="image-compress">
+              <span class="radio-dot"></span>
+            </label>
+            <div class="option-title-group">
+              <span class="option-title">Compress images</span>
+              <span id="badge-images" class="badge badge-recommended" hidden>RECOMMENDED</span>
+            </div>
+            <span id="size-images" class="option-size"></span>
+          </div>
+          <p class="option-desc">Re-encodes and downsamples embedded images. Text, vectors and fonts untouched.</p>
+
+          <!-- Quality slider -->
+          <div class="control-row">
+            <label class="control-label">Quality</label>
+            <input type="range" id="img-quality-slider" class="slider" min="20" max="95" value="75">
+            <div class="control-value-group">
+              <input type="number" id="img-quality-input" class="control-input" min="20" max="95" value="75">
+              <span class="control-unit">%</span>
+            </div>
+          </div>
+          <div class="range-labels">
+            <span>Smaller file</span>
+            <span>Better quality</span>
+          </div>
+
+          <!-- DPI radios -->
+          <div class="control-row">
+            <label class="control-label">Max DPI</label>
+            <div class="dpi-group" id="img-dpi-group">
+              <label class="dpi-option"><input type="radio" name="img-dpi" value="0"> Original</label>
+              <label class="dpi-option"><input type="radio" name="img-dpi" value="300"> 300</label>
+              <label class="dpi-option"><input type="radio" name="img-dpi" value="150" checked> 150 &#10022;</label>
+              <label class="dpi-option"><input type="radio" name="img-dpi" value="96"> 96</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Option 3: Flatten to images -->
+      <div class="option-section">
+        <div class="section-divider"></div>
+        <h3 class="section-title">Or flatten to images (lossy)</h3>
+
+        <div class="option-card" data-mode="flatten">
+          <div class="option-header">
+            <label class="option-radio">
+              <input type="radio" name="compress-mode" value="flatten">
+              <span class="radio-dot"></span>
+            </label>
+            <div class="option-title-group">
+              <span class="option-title">Flatten to images</span>
+              <span id="badge-flatten" class="badge badge-recommended" hidden>RECOMMENDED</span>
+              <span id="badge-flatten-smallest" class="badge badge-smallest" hidden>SMALLEST</span>
+            </div>
+            <span id="size-flatten" class="option-size"></span>
+          </div>
+          <p class="option-desc">Renders each page as a JPEG image. Produces the smallest files for vector-heavy PDFs. Text becomes rasterised (not selectable).</p>
+
+          <!-- DPI radios -->
+          <div class="control-row">
+            <label class="control-label">DPI</label>
+            <div class="dpi-group" id="flatten-dpi-group">
+              <label class="dpi-option"><input type="radio" name="flatten-dpi" value="300"> 300 (high)</label>
+              <label class="dpi-option"><input type="radio" name="flatten-dpi" value="150" checked> 150 &#10022;</label>
+              <label class="dpi-option"><input type="radio" name="flatten-dpi" value="120"> 120</label>
+              <label class="dpi-option"><input type="radio" name="flatten-dpi" value="96"> 96 (small)</label>
+            </div>
+          </div>
+
+          <!-- Quality slider -->
+          <div class="control-row">
+            <label class="control-label">Quality</label>
+            <input type="range" id="flatten-quality-slider" class="slider" min="30" max="95" value="75">
+            <div class="control-value-group">
+              <input type="number" id="flatten-quality-input" class="control-input" min="30" max="95" value="75">
+              <span class="control-unit">%</span>
+            </div>
+          </div>
+          <div class="range-labels">
+            <span>Smaller file</span>
+            <span>Better quality</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="action-row">
+        <button id="btn-back" class="btn btn-secondary">&larr; Choose different file</button>
+        <button id="btn-compress" class="btn btn-primary">Compress &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Screen 4: Compressing -->
+    <div id="screen-compressing" class="screen">
+      <h2 class="screen-title">Compressing&hellip;</h2>
+      <p id="compress-status" class="screen-subtitle">Starting compression&hellip;</p>
+
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div id="compress-progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="compress-percent" class="progress-percent">0%</span>
+      </div>
+    </div>
+
+    <!-- Screen 5: Done -->
+    <div id="screen-done" class="screen">
+      <div class="done-icon">&#10003;</div>
+      <h2 class="done-title">Done!</h2>
+      <p id="done-filename" class="done-filename"></p>
+
+      <div class="done-card">
+        <div class="done-row">
+          <span class="done-label">Original</span>
+          <span id="done-original" class="done-value"></span>
+        </div>
+        <div class="done-row">
+          <span class="done-label">Compressed</span>
+          <span id="done-compressed" class="done-value done-value-highlight"></span>
+        </div>
+        <div class="done-row">
+          <span class="done-label">Reduction</span>
+          <span id="done-reduction" class="done-value done-value-success"></span>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="btn-download" class="btn btn-primary">&#8615; Download</button>
+        <button id="btn-another" class="btn btn-secondary">Compress another &rarr;</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- App Scripts -->
+  <script src="js/utils.js"></script>
+  <script src="js/estimator.js"></script>
+  <script src="js/analyzer.js"></script>
+  <script src="js/metadata.js"></script>
+  <script src="js/image-compress.js"></script>
+  <script src="js/flatten.js"></script>
+  <script src="js/compressor.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
