@@ -1,0 +1,229 @@
+/* ── Split Tool Styles ────────────────────────────────────────────────── */
+
+/* Split mode selector */
+.split-mode-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.split-mode-btn {
+  flex: 1;
+  padding: 12px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.split-mode-btn:hover {
+  border-color: var(--accent-blue);
+  background: #0d2240;
+}
+
+.split-mode-btn.active {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.split-mode-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+  display: block;
+  margin-top: 4px;
+}
+
+/* Page range input */
+.range-input-group {
+  margin-bottom: 16px;
+}
+
+.range-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.range-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.range-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.range-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.range-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* Thumbnail grid for page selection */
+.thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.thumb-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  text-align: center;
+}
+
+.thumb-card:hover {
+  border-color: var(--accent-blue);
+}
+
+.thumb-card.selected {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.thumb-card canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 3px;
+}
+
+.thumb-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.thumb-card.selected .thumb-label {
+  color: var(--text-primary);
+}
+
+.thumb-check {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: white;
+  font-size: 12px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.thumb-card.selected .thumb-check {
+  display: flex;
+}
+
+/* Selection helpers */
+.select-helpers {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.select-helper-btn {
+  padding: 5px 12px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: var(--font);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.select-helper-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+/* Split results */
+.split-results {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.split-result-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 14px;
+}
+
+.split-result-info {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.split-result-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.split-result-dl {
+  padding: 6px 14px;
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 5px;
+  color: white;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.split-result-dl:hover {
+  background: #2563eb;
+}
+
+/* Loading thumbnails */
+.thumb-loading {
+  text-align: center;
+  padding: 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}

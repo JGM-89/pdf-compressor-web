@@ -3,49 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Merge PDFs Free — Combine PDF Files Online | PDF Compressor Web</title>
-  <meta name="description" content="Combine multiple PDF files into one for free, entirely in your browser. No uploads, no servers, no tracking. Drag-and-drop reordering, instant merge.">
-  <meta name="keywords" content="merge PDF, combine PDF, join PDF files, PDF merger, browser-based, free, private, no upload">
+  <title>Rotate, Reorder &amp; Remove PDF Pages Free | PDF Compressor Web</title>
+  <meta name="description" content="Rotate, reorder, and remove pages from a PDF for free, entirely in your browser. Visual drag-and-drop page management with thumbnail previews.">
+  <meta name="keywords" content="rotate PDF pages, reorder PDF, remove PDF pages, rearrange PDF, PDF page manager, browser-based, free, private">
   <meta name="author" content="J.G.Moore">
-  <link rel="canonical" href="https://pdf-compressor.org/merge/">
+  <link rel="canonical" href="https://pdf-compressor.org/pages/">
   <meta name="google-site-verification" content="_l8p6DGH7Twltw8IBA2SzMO2AJVJWGjIC_IGl6g3PjU" />
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Merge PDFs Free — Combine PDF Files Online">
-  <meta property="og:description" content="Combine multiple PDF files into one for free, entirely in your browser. No uploads, no servers.">
-  <meta property="og:url" content="https://pdf-compressor.org/merge/">
+  <meta property="og:title" content="Rotate, Reorder &amp; Remove PDF Pages Free">
+  <meta property="og:description" content="Rotate, reorder, and remove pages from a PDF for free, entirely in your browser.">
+  <meta property="og:url" content="https://pdf-compressor.org/pages/">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Merge PDFs Free — Combine PDF Files Online">
-  <meta name="twitter:description" content="Combine multiple PDF files into one for free, entirely in your browser.">
+  <meta name="twitter:title" content="Rotate, Reorder &amp; Remove PDF Pages Free">
+  <meta name="twitter:description" content="Rotate, reorder, and remove pages from a PDF for free, entirely in your browser.">
 
   <!-- Structured Data -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "WebApplication",
-    "name": "Merge PDFs — PDF Compressor Web",
-    "url": "https://pdf-compressor.org/merge/",
-    "description": "Combine multiple PDF files into one for free. All processing happens in your browser — your files never leave your device.",
+    "name": "PDF Page Manager — PDF Compressor Web",
+    "url": "https://pdf-compressor.org/pages/",
+    "description": "Rotate, reorder, and remove pages from a PDF. All processing happens in your browser — your files never leave your device.",
     "applicationCategory": "UtilitiesApplication",
     "operatingSystem": "Any (browser-based)",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "author": {
-      "@type": "Person",
-      "name": "J.G.Moore",
-      "url": "https://github.com/JGM-89"
-    }
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "J.G.Moore", "url": "https://github.com/JGM-89" }
   }
   </script>
 
   <link rel="stylesheet" href="../css/shared.css">
-  <link rel="stylesheet" href="../css/merge.css">
+  <link rel="stylesheet" href="../css/pages.css">
 </head>
 <body>
 
@@ -78,71 +70,89 @@
 
     <!-- Screen 1: Drop Zone -->
     <div id="screen-drop" class="screen active">
-      <h2 class="screen-title">Merge PDF files</h2>
-      <p class="screen-subtitle">Combine multiple PDFs into a single file. Drag to reorder before merging.</p>
+      <h2 class="screen-title">Manage PDF pages</h2>
+      <p class="screen-subtitle">Rotate, reorder, and remove pages from a PDF with visual drag-and-drop.</p>
 
       <div id="drop-zone" class="drop-zone" tabindex="0">
         <div class="drop-zone-inner">
           <div class="drop-icon">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-              <rect x="6" y="6" width="20" height="28" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
-              <rect x="22" y="14" width="20" height="28" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
-              <circle cx="24" cy="40" r="6" fill="var(--accent-blue)" opacity="0.2"/>
-              <path d="M24 37v6M21 40h6" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round"/>
+              <rect x="8" y="4" width="18" height="24" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <rect x="22" y="20" width="18" height="24" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <path d="M14 36l4-4M14 36l-4-4" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round"/>
+              <path d="M38 12l-4 4M38 12l4 4" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
-          <p class="drop-text">Drop PDFs here or click to browse</p>
-          <p class="drop-hint">Select 2 or more PDF files</p>
+          <p class="drop-text">Drop a PDF here or click to browse</p>
+          <p class="drop-hint">Select a PDF file to manage its pages</p>
         </div>
-        <input type="file" id="file-input" accept=".pdf" multiple hidden>
+        <input type="file" id="file-input" accept=".pdf" hidden>
       </div>
     </div>
 
-    <!-- Screen 2: File List -->
-    <div id="screen-files" class="screen">
-      <h2 class="screen-title">Files to merge</h2>
-      <p class="screen-subtitle">Drag to reorder. Files will be merged from top to bottom.</p>
+    <!-- Screen 2: Loading thumbnails -->
+    <div id="screen-loading" class="screen">
+      <h2 class="screen-title">Loading PDF&hellip;</h2>
+      <p id="loading-status" class="screen-subtitle">Rendering page thumbnails&hellip;</p>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div id="loading-progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="loading-percent" class="progress-percent">0%</span>
+      </div>
+    </div>
 
-      <div id="file-list" class="file-list"></div>
+    <!-- Screen 3: Page management -->
+    <div id="screen-pages" class="screen">
+      <h2 class="screen-title">Manage pages</h2>
+      <p class="screen-subtitle">Click to select, drag to reorder. Shift+click for range, Ctrl+click for multi-select.</p>
 
-      <button id="btn-add-more" class="add-more-btn">+ Add more PDFs</button>
-      <input type="file" id="file-input-add" accept=".pdf" multiple hidden>
+      <!-- Action toolbar -->
+      <div class="page-actions-bar">
+        <button id="btn-rotate-cw" class="page-action-btn" disabled title="Rotate 90° clockwise">&#8635; Rotate CW</button>
+        <button id="btn-rotate-ccw" class="page-action-btn" disabled title="Rotate 90° counter-clockwise">&#8634; Rotate CCW</button>
+        <button id="btn-remove" class="page-action-btn danger" disabled title="Remove selected pages">&#128465; Remove</button>
+        <button id="btn-restore" class="page-action-btn restore" disabled title="Restore removed pages">&#8629; Restore</button>
+        <span id="selection-info" class="selection-info">Click to select, drag to reorder</span>
+      </div>
 
-      <p id="file-count" class="file-count"></p>
+      <!-- Thumbnail grid -->
+      <div id="pages-grid" class="pages-grid"></div>
+
+      <p id="page-count-label" class="file-count" style="text-align:center;font-size:13px;color:var(--text-muted);margin:12px 0;"></p>
 
       <div class="action-row">
         <button id="btn-back" class="btn btn-secondary">&larr; Start over</button>
-        <button id="btn-merge" class="btn btn-primary" disabled>Add at least 2 files</button>
+        <button id="btn-save" class="btn btn-primary" disabled>&#128190; Save</button>
       </div>
     </div>
 
-    <!-- Screen 3: Merging -->
-    <div id="screen-merging" class="screen">
-      <h2 class="screen-title">Merging&hellip;</h2>
-      <p id="merge-status" class="screen-subtitle">Starting merge&hellip;</p>
-
+    <!-- Screen 4: Saving -->
+    <div id="screen-saving" class="screen">
+      <h2 class="screen-title">Saving&hellip;</h2>
+      <p id="save-status" class="screen-subtitle">Processing pages&hellip;</p>
       <div class="progress-container">
         <div class="progress-bar">
-          <div id="merge-progress-fill" class="progress-fill"></div>
+          <div id="save-progress-fill" class="progress-fill"></div>
         </div>
-        <span id="merge-percent" class="progress-percent">0%</span>
+        <span id="save-percent" class="progress-percent">0%</span>
       </div>
     </div>
 
-    <!-- Screen 4: Done -->
+    <!-- Screen 5: Done -->
     <div id="screen-done" class="screen">
       <div class="done-icon">&#10003;</div>
-      <h2 class="done-title">Merged!</h2>
+      <h2 class="done-title">Saved!</h2>
       <p id="done-filename" class="done-filename"></p>
 
       <div class="done-card">
         <div class="done-row">
-          <span class="done-label">Files merged</span>
-          <span id="done-files-merged" class="done-value done-value-highlight"></span>
+          <span class="done-label">Pages kept</span>
+          <span id="done-page-count" class="done-value done-value-highlight"></span>
         </div>
         <div class="done-row">
-          <span class="done-label">Total pages</span>
-          <span id="done-total-pages" class="done-value done-value-highlight"></span>
+          <span class="done-label">Pages removed</span>
+          <span id="done-removed" class="done-value done-value-highlight"></span>
         </div>
         <div class="done-row">
           <span class="done-label">Output size</span>
@@ -152,7 +162,7 @@
 
       <div class="action-row">
         <button id="btn-download" class="btn btn-primary">&#8615; Download</button>
-        <button id="btn-another" class="btn btn-secondary">Merge more &rarr;</button>
+        <button id="btn-another" class="btn btn-secondary">Edit another &rarr;</button>
       </div>
     </div>
 
@@ -161,20 +171,19 @@
   <!-- Marketing sections -->
   <div class="marketing">
 
-    <!-- Tool Navigation Strip -->
     <section class="marketing-section" style="margin-top: 32px;">
       <h2 class="marketing-heading">More PDF Tools</h2>
       <div class="tool-nav-grid">
         <a href="../" class="tool-nav-card">
           <span class="tool-nav-icon">&#128230;</span> Compress
         </a>
-        <a href="../merge/" class="tool-nav-card active">
+        <a href="../merge/" class="tool-nav-card">
           <span class="tool-nav-icon">&#128195;</span> Merge
         </a>
         <a href="../split/" class="tool-nav-card">
           <span class="tool-nav-icon">&#9986;</span> Split
         </a>
-        <a href="../pages/" class="tool-nav-card">
+        <a href="../pages/" class="tool-nav-card active">
           <span class="tool-nav-icon">&#128260;</span> Pages
         </a>
         <span class="tool-nav-card coming-soon">
@@ -184,27 +193,27 @@
     </section>
 
     <section class="marketing-section">
-      <h2 class="marketing-heading">Why Merge with PDF Compressor Web?</h2>
+      <h2 class="marketing-heading">Why Manage Pages with PDF Compressor Web?</h2>
       <div class="feature-grid">
         <div class="feature-card">
           <div class="feature-icon">&#128274;</div>
           <h3 class="feature-title">100% Private</h3>
-          <p class="feature-desc">Your files never leave your device. Merging happens entirely in the browser &mdash; nothing is uploaded anywhere.</p>
+          <p class="feature-desc">Your files never leave your device. All page management happens entirely in the browser.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">&#128195;</div>
-          <h3 class="feature-title">Drag &amp; Drop Reorder</h3>
-          <p class="feature-desc">Arrange your PDFs in any order before merging. Just drag the handles to rearrange.</p>
+          <div class="feature-icon">&#128260;</div>
+          <h3 class="feature-title">Rotate Pages</h3>
+          <p class="feature-desc">Rotate any page 90° clockwise or counter-clockwise. Fix scanned documents in seconds.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">&#9889;</div>
-          <h3 class="feature-title">Instant Merge</h3>
-          <p class="feature-desc">Combine files in seconds with a real-time progress bar. No waiting for server processing.</p>
+          <div class="feature-icon">&#128196;</div>
+          <h3 class="feature-title">Reorder &amp; Remove</h3>
+          <p class="feature-desc">Drag pages to rearrange them, or remove pages you don't need. Restore removed pages any time.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">&#128736;&#65039;</div>
-          <h3 class="feature-title">Free &amp; Open Source</h3>
-          <p class="feature-desc">No sign-ups, no limits, no ads. Merge as many files as you need, as often as you like.</p>
+          <div class="feature-icon">&#128444;&#65039;</div>
+          <h3 class="feature-title">Visual Thumbnails</h3>
+          <p class="feature-desc">See every page as a thumbnail preview. Multi-select with Ctrl or Shift+click.</p>
         </div>
       </div>
     </section>
@@ -214,20 +223,20 @@
       <div class="steps-row">
         <div class="step-card">
           <div class="step-number">1</div>
-          <h3 class="step-title">Drop your PDFs</h3>
-          <p class="step-desc">Drag and drop or click to select 2 or more PDF files.</p>
+          <h3 class="step-title">Drop your PDF</h3>
+          <p class="step-desc">Drag and drop or click to select the PDF you want to edit.</p>
         </div>
         <div class="step-connector"></div>
         <div class="step-card">
           <div class="step-number">2</div>
-          <h3 class="step-title">Arrange the order</h3>
-          <p class="step-desc">Drag files to reorder. Remove any you don't need, or add more.</p>
+          <h3 class="step-title">Edit pages</h3>
+          <p class="step-desc">Rotate, reorder, or remove pages visually with drag-and-drop.</p>
         </div>
         <div class="step-connector"></div>
         <div class="step-card">
           <div class="step-number">3</div>
-          <h3 class="step-title">Download</h3>
-          <p class="step-desc">Hit merge and your combined PDF downloads automatically.</p>
+          <h3 class="step-title">Save &amp; Download</h3>
+          <p class="step-desc">Your edited PDF downloads automatically with all changes applied.</p>
         </div>
       </div>
     </section>
@@ -259,9 +268,11 @@
 
   <!-- CDN Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
   <!-- App Scripts -->
   <script src="../js/utils.js"></script>
-  <script src="../js/merge/app.js"></script>
+  <script src="../js/thumbnail.js"></script>
+  <script src="../js/pages/app.js"></script>
 </body>
 </html>

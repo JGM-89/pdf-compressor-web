@@ -1,0 +1,144 @@
+/* ── Pages Tool Styles ───────────────────────────────────────────────── */
+
+/* Page thumbnail grid — larger than split for interaction */
+.pages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+  min-height: 60px;
+}
+
+/* Individual page card */
+.page-card {
+  position: relative;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  padding: 6px;
+  cursor: grab;
+  transition: border-color 0.2s, background 0.2s, opacity 0.2s, transform 0.15s;
+  text-align: center;
+  user-select: none;
+}
+
+.page-card:hover {
+  border-color: var(--accent-blue);
+}
+
+.page-card.selected {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.page-card.dragging {
+  opacity: 0.4;
+}
+
+.page-card.drag-over {
+  border-color: var(--accent-blue);
+  transform: scale(1.03);
+}
+
+.page-card.removed {
+  opacity: 0.25;
+  border-style: dashed;
+}
+
+.page-card canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.page-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  padding: 0 2px;
+}
+
+.page-card-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.page-card.selected .page-card-label {
+  color: var(--text-primary);
+}
+
+/* Rotation badge */
+.page-rotation-badge {
+  font-size: 10px;
+  color: var(--accent-blue);
+  font-weight: 600;
+}
+
+/* Page action buttons row */
+.page-actions-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.page-action-btn {
+  padding: 7px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.page-action-btn:hover {
+  border-color: var(--accent-blue);
+  background: #0d2240;
+}
+
+.page-action-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.page-action-btn.danger:hover {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.page-action-btn.restore:hover {
+  border-color: var(--success-green);
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success-green);
+}
+
+/* Selection info bar */
+.selection-info {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Loading state */
+.pages-loading {
+  text-align: center;
+  padding: 32px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.pages-loading-bar {
+  margin-top: 12px;
+}

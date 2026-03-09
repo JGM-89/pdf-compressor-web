@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Split PDF Free — Extract Pages from PDF Online | PDF Compressor Web</title>
+  <meta name="description" content="Split PDF files into individual pages or custom ranges for free, entirely in your browser. No uploads, no servers, no tracking.">
+  <meta name="keywords" content="split PDF, extract PDF pages, separate PDF, PDF splitter, browser-based, free, private, no upload">
+  <meta name="author" content="J.G.Moore">
+  <link rel="canonical" href="https://pdf-compressor.org/split/">
+  <meta name="google-site-verification" content="_l8p6DGH7Twltw8IBA2SzMO2AJVJWGjIC_IGl6g3PjU" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Split PDF Free — Extract Pages from PDF Online">
+  <meta property="og:description" content="Split PDF files into individual pages or custom ranges for free, entirely in your browser.">
+  <meta property="og:url" content="https://pdf-compressor.org/split/">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Split PDF Free — Extract Pages from PDF Online">
+  <meta name="twitter:description" content="Split PDF files into individual pages or custom ranges for free, entirely in your browser.">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Split PDF — PDF Compressor Web",
+    "url": "https://pdf-compressor.org/split/",
+    "description": "Split PDF files into individual pages or custom ranges. All processing happens in your browser — your files never leave your device.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any (browser-based)",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "J.G.Moore", "url": "https://github.com/JGM-89" }
+  }
+  </script>
+
+  <link rel="stylesheet" href="../css/shared.css">
+  <link rel="stylesheet" href="../css/split.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-accent"></div>
+    <div class="header-content">
+      <div class="header-left">
+        <a href="../" class="header-title">PDF Compressor <span class="header-version">Web</span></a>
+      </div>
+      <div class="header-right">
+        <a href="https://github.com/JGM-89/pdf-compressor-web" class="header-github" target="_blank" rel="noopener" title="View on GitHub">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+        </a>
+        <a href="https://github.com/JGM-89" class="header-byline" target="_blank" rel="noopener">by J.G.Moore</a>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+
+  <!-- Privacy banner -->
+  <div class="privacy-banner">
+    <span class="privacy-icon">&#128274;</span>
+    <span>Your files never leave your device &mdash; all processing happens in the browser.</span>
+  </div>
+
+  <main class="content">
+
+    <!-- Screen 1: Drop Zone -->
+    <div id="screen-drop" class="screen active">
+      <h2 class="screen-title">Split a PDF</h2>
+      <p class="screen-subtitle">Extract individual pages or page ranges from a PDF file.</p>
+
+      <div id="drop-zone" class="drop-zone" tabindex="0">
+        <div class="drop-zone-inner">
+          <div class="drop-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <rect x="6" y="6" width="16" height="24" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <rect x="26" y="6" width="16" height="24" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <path d="M22 18h4" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 3"/>
+              <circle cx="24" cy="40" r="6" fill="var(--accent-blue)" opacity="0.2"/>
+              <path d="M22 38l4 4M26 38l-4 4" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <p class="drop-text">Drop a PDF here or click to browse</p>
+          <p class="drop-hint">Select a PDF file to split</p>
+        </div>
+        <input type="file" id="file-input" accept=".pdf" hidden>
+      </div>
+    </div>
+
+    <!-- Screen 2: Loading thumbnails -->
+    <div id="screen-loading" class="screen">
+      <h2 class="screen-title">Loading PDF&hellip;</h2>
+      <p id="loading-status" class="screen-subtitle">Rendering page thumbnails&hellip;</p>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div id="loading-progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="loading-percent" class="progress-percent">0%</span>
+      </div>
+    </div>
+
+    <!-- Screen 3: Split options -->
+    <div id="screen-split" class="screen">
+      <h2 class="screen-title">Split options</h2>
+      <p id="split-file-label" class="screen-subtitle"></p>
+
+      <!-- Mode selector -->
+      <div class="split-mode-row">
+        <button class="split-mode-btn active" data-mode="all">
+          Every page
+          <span class="split-mode-desc">One PDF per page</span>
+        </button>
+        <button class="split-mode-btn" data-mode="range">
+          Page ranges
+          <span class="split-mode-desc">e.g. 1-3, 5, 8-10</span>
+        </button>
+        <button class="split-mode-btn" data-mode="pick">
+          Pick pages
+          <span class="split-mode-desc">Click to select</span>
+        </button>
+      </div>
+
+      <!-- Range input (hidden by default) -->
+      <div id="range-section" class="range-input-group hidden">
+        <label class="range-label" for="range-input">Enter page numbers or ranges:</label>
+        <input type="text" id="range-input" class="range-input" placeholder="e.g. 1-3, 5, 8-10">
+        <p class="range-hint">Separate with commas. Each range becomes a separate PDF.</p>
+      </div>
+
+      <!-- Pick pages (hidden by default) -->
+      <div id="pick-section" class="hidden">
+        <div class="select-helpers">
+          <button id="sel-all" class="select-helper-btn">Select all</button>
+          <button id="sel-none" class="select-helper-btn">Select none</button>
+          <button id="sel-odd" class="select-helper-btn">Odd pages</button>
+          <button id="sel-even" class="select-helper-btn">Even pages</button>
+        </div>
+        <div id="thumb-grid" class="thumb-grid"></div>
+      </div>
+
+      <div class="action-row">
+        <button id="btn-back" class="btn btn-secondary">&larr; Start over</button>
+        <button id="btn-split" class="btn btn-primary">&#9986; Split</button>
+      </div>
+    </div>
+
+    <!-- Screen 4: Splitting -->
+    <div id="screen-splitting" class="screen">
+      <h2 class="screen-title">Splitting&hellip;</h2>
+      <p id="split-status" class="screen-subtitle">Starting&hellip;</p>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div id="split-progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="split-percent" class="progress-percent">0%</span>
+      </div>
+    </div>
+
+    <!-- Screen 5: Done -->
+    <div id="screen-done" class="screen">
+      <div class="done-icon">&#10003;</div>
+      <h2 class="done-title">Split complete!</h2>
+
+      <div class="done-card">
+        <div class="done-row">
+          <span class="done-label">Files created</span>
+          <span id="done-file-count" class="done-value done-value-highlight"></span>
+        </div>
+        <div class="done-row">
+          <span class="done-label">Total pages</span>
+          <span id="done-total-pages" class="done-value done-value-highlight"></span>
+        </div>
+        <div class="done-row">
+          <span class="done-label">Total size</span>
+          <span id="done-total-size" class="done-value done-value-success"></span>
+        </div>
+      </div>
+
+      <div id="split-results" class="split-results"></div>
+
+      <div class="action-row">
+        <button id="btn-download-all" class="btn btn-primary">&#8615; Download all</button>
+        <button id="btn-another" class="btn btn-secondary">Split another &rarr;</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Marketing sections -->
+  <div class="marketing">
+
+    <section class="marketing-section" style="margin-top: 32px;">
+      <h2 class="marketing-heading">More PDF Tools</h2>
+      <div class="tool-nav-grid">
+        <a href="../" class="tool-nav-card">
+          <span class="tool-nav-icon">&#128230;</span> Compress
+        </a>
+        <a href="../merge/" class="tool-nav-card">
+          <span class="tool-nav-icon">&#128195;</span> Merge
+        </a>
+        <a href="../split/" class="tool-nav-card active">
+          <span class="tool-nav-icon">&#9986;</span> Split
+        </a>
+        <a href="../pages/" class="tool-nav-card">
+          <span class="tool-nav-icon">&#128260;</span> Pages
+        </a>
+        <span class="tool-nav-card coming-soon">
+          <span class="tool-nav-icon">&#128274;</span> Protect
+        </span>
+      </div>
+    </section>
+
+    <section class="marketing-section">
+      <h2 class="marketing-heading">Why Split with PDF Compressor Web?</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#128274;</div>
+          <h3 class="feature-title">100% Private</h3>
+          <p class="feature-desc">Your files never leave your device. Splitting happens entirely in the browser &mdash; nothing is uploaded anywhere.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#9986;</div>
+          <h3 class="feature-title">3 Split Modes</h3>
+          <p class="feature-desc">Split every page, specify custom ranges, or visually pick the exact pages you want.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128444;&#65039;</div>
+          <h3 class="feature-title">Visual Thumbnails</h3>
+          <p class="feature-desc">See thumbnail previews of every page so you know exactly what you're extracting.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128736;&#65039;</div>
+          <h3 class="feature-title">Free &amp; Open Source</h3>
+          <p class="feature-desc">No sign-ups, no limits, no ads. Split as many files as you need, completely free.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="marketing-section">
+      <h2 class="marketing-heading">How It Works</h2>
+      <div class="steps-row">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h3 class="step-title">Drop your PDF</h3>
+          <p class="step-desc">Drag and drop or click to select the PDF you want to split.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h3 class="step-title">Choose pages</h3>
+          <p class="step-desc">Split every page, enter custom ranges, or pick pages visually.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h3 class="step-title">Download</h3>
+          <p class="step-desc">Your split PDFs are ready to download instantly.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="marketing-section marketing-section-support">
+      <p class="support-text">
+        Find this tool useful?
+        <a href="https://ko-fi.com/jgmoore" class="kofi-link" target="_blank" rel="noopener">&#9749; Buy me a coffee on Ko-fi</a>
+      </p>
+    </section>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p class="footer-disclaimer">
+      This tool is provided as-is with no warranty. Always keep a backup of your files.
+      No data is collected, stored, or transmitted; all processing happens entirely in your browser.
+    </p>
+    <p class="footer-links">
+      <a href="https://github.com/JGM-89/pdf-compressor-web" target="_blank" rel="noopener">GitHub</a>
+      <span class="footer-sep">&middot;</span>
+      <a href="https://github.com/JGM-89/pdf-compressor-web/issues" target="_blank" rel="noopener">Report a bug</a>
+      <span class="footer-sep">&middot;</span>
+      <a href="https://ko-fi.com/jgmoore" target="_blank" rel="noopener">&#9749; Ko-fi</a>
+    </p>
+    <p class="footer-byline">Made by <a href="https://github.com/JGM-89" target="_blank" rel="noopener">J.G.Moore</a></p>
+  </footer>
+
+  <!-- CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- App Scripts -->
+  <script src="../js/utils.js"></script>
+  <script src="../js/thumbnail.js"></script>
+  <script src="../js/split/app.js"></script>
+</body>
+</html>
