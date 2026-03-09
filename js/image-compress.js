@@ -214,18 +214,31 @@ function paeth(a, b, c) {
 /**
  * Pipe a Uint8Array through a web stream transform and collect output.
  * Used by both deflateBytes and inflateBytes.
+ *
+ * Key fix: if the reader throws AFTER some chunks were already produced
+ * (e.g. zlib checksum error at end of valid data), we keep the partial
+ * output instead of discarding it. Many Photoshop-created PDFs have
+ * valid deflate data but non-standard zlib trailers.
  */
 async function pipeStream(input, transformStream) {
   var writer = transformStream.writable.getWriter();
-  writer.write(input);
-  writer.close();
+  // Suppress unhandled rejections — errors propagate to the readable side
+  writer.write(input).catch(function() {});
+  writer.close().catch(function() {});
 
   var reader = transformStream.readable.getReader();
   var chunks = [];
-  while (true) {
-    var result = await reader.read();
-    if (result.done) break;
-    chunks.push(result.value);
+  try {
+    while (true) {
+      var result = await reader.read();
+      if (result.done) break;
+      chunks.push(result.value);
+    }
+  } catch (e) {
+    // If we already collected chunks, the decompressed data is likely valid
+    // despite a trailing checksum error. Keep what we have.
+    if (chunks.length === 0) throw e;
+    // Otherwise fall through — use the chunks we got
   }
 
   var totalLen = 0;
@@ -250,21 +263,51 @@ async function deflateBytes(input) {
 
 /**
  * Decompress a zlib/Flate-encoded Uint8Array using the native Decompression Streams API.
- * Tries zlib format first, then raw deflate as fallback.
- * Returns null if DecompressionStream is not available.
+ * Multiple strategies to handle non-standard zlib streams (common in Photoshop PDFs):
+ *   1. Standard zlib ('deflate') — handles checksums via pipeStream's partial-data recovery
+ *   2. Strip zlib header + Adler32 checksum, use raw deflate — bypasses all validation
+ *   3. Raw deflate as-is — for streams stored without zlib wrapper
+ * Returns null if DecompressionStream is not available or all attempts fail.
  */
 async function inflateBytes(input) {
   if (typeof DecompressionStream === 'undefined') return null;
 
-  // Try zlib format (most common in PDF FlateDecode)
+  // Try 1: Standard zlib format (pipeStream now recovers partial data on checksum errors)
   try {
-    return await pipeStream(input, new DecompressionStream('deflate'));
-  } catch (e) { /* not zlib, try raw */ }
+    var result = await pipeStream(input, new DecompressionStream('deflate'));
+    if (result && result.length > 0) return result;
+  } catch (e) { /* try alternatives */ }
 
-  // Fallback: try raw deflate (some PDFs use this)
+  // Try 2: Strip zlib header and checksum, use raw deflate
+  // This completely bypasses checksum validation and window-size issues
+  if (input.length > 6) {
+    var cmf = input[0];
+    var flg = input[1];
+    // Verify it looks like a zlib header (deflate method, valid FCHECK)
+    if ((cmf & 0x0F) === 8 && ((cmf * 256 + flg) % 31 === 0)) {
+      var headerSize = 2;
+      if (flg & 0x20) headerSize += 4; // FDICT present
+      // Strip header and trailing 4-byte Adler32 checksum
+      var rawDeflate = input.subarray(headerSize, input.length - 4);
+      try {
+        var result2 = await pipeStream(rawDeflate, new DecompressionStream('deflate-raw'));
+        if (result2 && result2.length > 0) return result2;
+      } catch (e) { /* try next */ }
+
+      // Try 2b: strip header only (in case checksum isn't exactly 4 bytes)
+      var rawDeflate2 = input.subarray(headerSize);
+      try {
+        var result3 = await pipeStream(rawDeflate2, new DecompressionStream('deflate-raw'));
+        if (result3 && result3.length > 0) return result3;
+      } catch (e) { /* try next */ }
+    }
+  }
+
+  // Try 3: Raw deflate as-is (for streams without zlib wrapper)
   try {
-    return await pipeStream(input, new DecompressionStream('deflate-raw'));
-  } catch (e) { /* both failed */ }
+    var result4 = await pipeStream(input, new DecompressionStream('deflate-raw'));
+    if (result4 && result4.length > 0) return result4;
+  } catch (e) { /* all failed */ }
 
   return null;
 }
@@ -336,26 +379,28 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     var isLargeImg = originalSize > 10000;
     var rawBytes = null;
 
-    // Step A: Try native inflate (most reliable for all zlib variants)
+    // Step A: Try native inflate (multiple strategies for non-standard zlib)
     try {
       rawBytes = await inflateBytes(obj.contents);
-      if (isLargeImg) console.log('[img-compress] native inflate:', width + 'x' + height,
-        'compressed=' + originalSize + 'b, decoded=' + (rawBytes ? rawBytes.length : 'null') + 'b');
     } catch (e) {
-      if (isLargeImg) console.warn('[img-compress] native inflate error:', e.message || e);
+      if (isLargeImg) console.warn('[img-compress] native inflate failed:', e.message || e);
     }
+    if (isLargeImg) console.log('[img-compress] Step A inflate:', width + 'x' + height,
+      'compressed=' + originalSize + 'b, decoded=' + (rawBytes ? rawBytes.length : 'null') + 'b');
 
     // Step B: Fallback to pdf-lib decoder
-    if (!rawBytes) {
+    if (!rawBytes || rawBytes.length === 0) {
       try {
         var decoded = PDFLib.decodePDFRawStream(obj);
         rawBytes = decoded.decode();
         if (!(rawBytes instanceof Uint8Array)) rawBytes = new Uint8Array(rawBytes);
-        if (isLargeImg) console.log('[img-compress] pdf-lib decode ok:', rawBytes.length + 'b');
+        if (isLargeImg) console.log('[img-compress] Step B pdf-lib ok:', rawBytes.length + 'b');
       } catch (e) {
-        if (isLargeImg) console.warn('[img-compress] pdf-lib decode error:', e.message || e);
-        // Last resort: treat as uncompressed raw bytes
-        rawBytes = new Uint8Array(obj.contents);
+        if (isLargeImg) console.warn('[img-compress] Step B pdf-lib failed:', e.message || e);
+        // Both methods failed — cannot decode this stream
+        console.warn('[img-compress] Cannot decode stream for image', width + 'x' + height,
+          '(ref ' + imgInfo.ref + ', filter=' + imgInfo.filter + ', size=' + originalSize + ')');
+        return false;
       }
     }
 
