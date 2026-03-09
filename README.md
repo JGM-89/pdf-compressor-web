@@ -29,3 +29,7 @@ Plain HTML/CSS/JS with no build tools or frameworks. Uses:
 - [pdf-lib](https://pdf-lib.js.org/) — PDF parsing, manipulation, and saving
 - [pdf.js](https://mozilla.github.io/pdf.js/) — Page rendering for flatten mode
 - Canvas API — Image re-encoding and DPI downsampling
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
