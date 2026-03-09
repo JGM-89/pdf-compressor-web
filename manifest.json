@@ -1,7 +1,7 @@
 {
   "name": "PDF Compressor Web",
   "short_name": "PDF Tools",
-  "description": "Free, private PDF tools — compress, merge, split, manage pages, and protect PDFs entirely in your browser.",
+  "description": "Free, private PDF tools. Compress, merge, split, manage pages, and protect PDFs entirely in your browser.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0b1929",

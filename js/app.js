@@ -119,7 +119,7 @@
       );
       if (ok) {
         maxFileSizeMB = Infinity;
-        $('.drop-hint').textContent = 'No file size limit — large files may be slow';
+        $('.drop-hint').textContent = 'No file size limit - large files may be slow';
         btn.style.display = 'none';
       }
     });
@@ -335,7 +335,7 @@
       if (!hasImages) {
         text += 'The file has few or no embedded images to compress further.';
       } else {
-        text += 'Images are already well-optimised \u2014 re-encoding won\'t save much.';
+        text += 'Images are already well-optimised  - re-encoding won\'t save much.';
       }
     }
 
@@ -416,7 +416,7 @@
     // Flatten quality slider ↔ input sync
     syncSliderInput('flatten-quality-slider', 'flatten-quality-input');
 
-    // DPI radio groups — trigger estimate update
+    // DPI radio groups - trigger estimate update
     var dpiRadios = $$('input[name="img-dpi"], input[name="flatten-dpi"]');
     for (var i = 0; i < dpiRadios.length; i++) {
       dpiRadios[i].addEventListener('change', function() {
@@ -616,9 +616,9 @@
       var saved = origSize - newSize;
       savings.innerHTML = 'You saved <strong>' + formatBytes(saved) + '</strong> (' + reduction.toFixed(0) + '% smaller)';
     } else if (reduction > -1) {
-      savings.innerHTML = 'File size is about the same \u2014 this PDF was already well-optimised.';
+      savings.innerHTML = 'File size is about the same  - this PDF was already well-optimised.';
     } else {
-      savings.innerHTML = '<strong class="warning">File got larger</strong> \u2014 try a different compression mode.';
+      savings.innerHTML = '<strong class="warning">File got larger</strong>  - try a different compression mode.';
     }
   }
 

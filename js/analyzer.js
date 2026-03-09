@@ -1,5 +1,5 @@
 /**
- * PDF analysis — enumerates all objects and categorizes them.
+ * PDF analysis - enumerates all objects and categorizes them.
  * Produces the data structure used by the report screen and all compression modes.
  */
 

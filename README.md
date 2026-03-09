@@ -1,6 +1,6 @@
 # PDF Compressor Web
 
-A free, private PDF toolkit that runs entirely in your browser. Compress, merge, split, manage pages, and password-protect PDFs — no uploads, no servers, no tracking.
+A free, private PDF toolkit that runs entirely in your browser. Compress, merge, split, manage pages, and password-protect PDFs  - no uploads, no servers, no tracking.
 
 **[Try it live at pdf-compressor.org](https://pdf-compressor.org/)**
 
@@ -18,7 +18,7 @@ A free, private PDF toolkit that runs entirely in your browser. Compress, merge,
 
 | Mode | What it does | Quality impact |
 |------|-------------|----------------|
-| **Lossless Cleanup** | Strips metadata (author, title, timestamps, XMP) | None — visually identical |
+| **Lossless Cleanup** | Strips metadata (author, title, timestamps, XMP) | None  - visually identical |
 | **Compress Images** | Re-encodes embedded images at lower JPEG quality and optional DPI reduction | Minimal at default settings |
 | **Flatten to Images** | Renders each page as a JPEG image and rebuilds the PDF | Text becomes non-selectable |
 

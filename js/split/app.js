@@ -60,7 +60,7 @@
       state.pageCount = result.pageCount;
       state.selectedPages = [];
 
-      $('split-file-label').textContent = state.fileName + ' — ' + state.pageCount + ' pages';
+      $('split-file-label').textContent = state.fileName + ' - ' + state.pageCount + ' pages';
       buildThumbnailGrid(result.canvases);
       setMode('all');
       show('screen-split');
@@ -246,7 +246,7 @@
           });
         }
       } else {
-        // Pick mode — extract selected pages into one file
+        // Pick mode - extract selected pages into one file
         $('split-status').textContent = 'Extracting ' + state.selectedPages.length + ' pages…';
         $('split-progress-fill').style.width = '50%';
         $('split-percent').textContent = '50%';

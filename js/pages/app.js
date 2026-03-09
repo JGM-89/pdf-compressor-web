@@ -1,4 +1,4 @@
-/* ── Pages Tool — Rotate, Reorder, Remove ──────────────────────────── */
+/* ── Pages Tool - Rotate, Reorder, Remove ──────────────────────────── */
 
 (function () {
   'use strict';

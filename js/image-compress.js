@@ -88,7 +88,7 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
   var ctx;
 
   if (imgInfo.isJpeg || imgInfo.filter === 'DCTDecode') {
-    // JPEG: raw bytes ARE the JPEG file — decode via browser
+    // JPEG: raw bytes ARE the JPEG file - decode via browser
     var blob = new Blob([obj.contents], { type: 'image/jpeg' });
     var bitmap = await createImageBitmap(blob);
     width = bitmap.width;

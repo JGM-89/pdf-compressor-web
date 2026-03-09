@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.0 — 2025-03-09
+## v1.0.0  - 2025-03-09
 
 Initial release.
 
@@ -9,5 +9,5 @@ Initial release.
 - Real-time size estimates with quality and DPI controls
 - Smart recommendation engine
 - File breakdown chart showing what's taking up space
-- 100% client-side — no uploads, no tracking
+- 100% client-side  - no uploads, no tracking
 - Disclaimer footer and large file override option

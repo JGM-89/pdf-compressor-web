@@ -1,5 +1,5 @@
 /**
- * Compression orchestrator — delegates to the correct mode function.
+ * Compression orchestrator - delegates to the correct mode function.
  */
 
 /* global compressMetadata, compressImages, compressFlatten */
