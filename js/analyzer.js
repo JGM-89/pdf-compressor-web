@@ -317,9 +317,10 @@ function pdfNameStr(obj) {
 function pdfNumberVal(obj) {
   if (!obj) return 0;
   if (typeof obj === 'number') return obj;
-  // PDFNumber: try .value, .numberValue, or parse toString()
-  if (obj.value !== undefined) return Number(obj.value);
-  if (obj.numberValue !== undefined) return obj.numberValue;
+  // PDFNumber in minified pdf-lib: .value may be a method, not a property
+  var v = (typeof obj.value === 'function') ? obj.value() : obj.value;
+  if (typeof v === 'number') return v;
+  if (typeof obj.numberValue === 'number') return obj.numberValue;
   var s = obj.toString ? obj.toString() : '';
   var n = parseFloat(s);
   return isNaN(n) ? 0 : n;

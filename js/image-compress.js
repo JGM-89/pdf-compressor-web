@@ -162,7 +162,9 @@ function resolveVal(val, ctx) {
 function numVal(obj) {
   if (!obj) return 0;
   if (typeof obj === 'number') return obj;
-  if (typeof obj.value === 'number') return obj.value;
+  // pdf-lib minified: .value may be a method, not a property
+  var v = (typeof obj.value === 'function') ? obj.value() : obj.value;
+  if (typeof v === 'number') return v;
   return parseFloat(obj.toString()) || 0;
 }
 
