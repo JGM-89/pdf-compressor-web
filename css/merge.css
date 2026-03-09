@@ -1,0 +1,125 @@
+/* ── Merge Tool Styles ────────────────────────────────────────────────── */
+
+/* File list */
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  min-height: 40px;
+}
+
+.file-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 12px;
+  transition: border-color 0.2s, opacity 0.2s, transform 0.15s;
+}
+
+.file-entry.dragging {
+  opacity: 0.4;
+}
+
+.file-entry.drag-over {
+  border-color: var(--accent-blue);
+  background: #0d2240;
+}
+
+.file-drag-handle {
+  cursor: grab;
+  color: var(--text-muted);
+  font-size: 16px;
+  user-select: none;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.file-drag-handle:active {
+  cursor: grabbing;
+}
+
+.file-entry-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.file-entry-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-entry-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.file-entry-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+.file-entry-remove:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Add more button */
+.add-more-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: none;
+  border: 1px dashed var(--border-color);
+  border-radius: 6px;
+  padding: 8px 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  margin-top: 4px;
+  font-family: var(--font);
+}
+
+.add-more-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+/* File count label */
+.file-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  text-align: center;
+}
+
+/* Merge action row */
+.merge-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  gap: 12px;
+}
+
+.merge-info {
+  font-size: 12px;
+  color: var(--text-muted);
+}
