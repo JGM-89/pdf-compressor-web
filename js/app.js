@@ -5,7 +5,8 @@
  */
 
 /* global PDFLib, analyzePDF, compress, formatBytes, formatReduction, downloadBlob,
-          estimateMetadataSize, estimateImageCompressSize, estimateFlattenSize */
+          estimateMetadataSize, estimateImageCompressSize, estimateFlattenSize,
+          _compressLog */
 
 (function() {
   'use strict';
@@ -583,6 +584,12 @@
     // Before/after comparison bar
     updateComparisonBar(origSize, newSize, reduction);
 
+    // Show log button if image compression was used
+    var logBtn = $('#btn-view-log');
+    if (logBtn) {
+      logBtn.hidden = !(typeof _compressLog !== 'undefined' && _compressLog.length > 0);
+    }
+
     showScreen('done');
 
     // Auto-trigger download
@@ -648,6 +655,20 @@
     $('#btn-another').addEventListener('click', function() {
       resetState();
       showScreen('drop');
+    });
+
+    // View compression log button
+    $('#btn-view-log').addEventListener('click', function() {
+      if (typeof _compressLog !== 'undefined' && _compressLog.length > 0) {
+        var text = _compressLog.join('\n');
+        var blob = new Blob([text], { type: 'text/plain' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'compression-log.txt';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
     });
   }
 

@@ -10,6 +10,9 @@
 
 /* global PDFLib, yieldToUI, canvasToJpegBytes */
 
+/** Compression log — populated during compressImages, read by app.js */
+var _compressLog = [];
+
 /**
  * Compress images in a PDF by re-encoding them as JPEG (or Flate for grayscale).
  * Also strips metadata and Photoshop data.
@@ -25,19 +28,45 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
   var PDFName = PDFLib.PDFName;
   var PDFRawStream = PDFLib.PDFRawStream;
 
+  _compressLog = [];
+  _compressLog.push('=== Image Compression Log ===');
+  _compressLog.push('Quality: ' + quality + ', Target DPI: ' + (targetDPI || 'original'));
+  _compressLog.push('Analysis found ' + analysis.images.length + ' images total');
+  _compressLog.push('');
+
   onProgress(0.02, 'Loading PDF\u2026');
 
   var pdfDoc = await PDFDocument.load(pdfBytes, { updateMetadata: false });
 
+  // Log all images from analysis before filtering
+  for (var a = 0; a < analysis.images.length; a++) {
+    var ai = analysis.images[a];
+    _compressLog.push('  Image ' + (a + 1) + ': ref=' + ai.ref + ' ' + ai.width + 'x' + ai.height +
+      ' filter=' + ai.filter + ' cs=' + ai.colorSpace + ' size=' + ai.rawSize + 'b' +
+      (ai.isMask ? ' MASK' : ''));
+  }
+  _compressLog.push('');
+
   // Filter to compressible images (skip tiny icons and unsupported formats)
   var images = analysis.images.filter(function(img) {
-    if (img.width < 8 || img.height < 8) return false;
-    // Only handle JPEG and Flate-encoded images
-    if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') return false;
-    // Skip CMYK (canvas can't handle it correctly)
-    if (img.colorSpace === 'DeviceCMYK') return false;
+    if (img.width < 8 || img.height < 8) {
+      _compressLog.push('SKIP ' + img.ref + ': too small (' + img.width + 'x' + img.height + ')');
+      return false;
+    }
+    if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') {
+      _compressLog.push('SKIP ' + img.ref + ': unsupported filter "' + img.filter + '"');
+      return false;
+    }
+    if (img.colorSpace === 'DeviceCMYK') {
+      _compressLog.push('SKIP ' + img.ref + ': CMYK not supported');
+      return false;
+    }
     return true;
   });
+
+  _compressLog.push('');
+  _compressLog.push(images.length + ' images passed filter, processing...');
+  _compressLog.push('');
 
   var total = images.length;
   var processed = 0;
@@ -48,14 +77,24 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
     onProgress(0.02 + 0.88 * (i / total),
       'Compressing image ' + (i + 1) + '/' + total + '\u2026');
 
+    _compressLog.push('--- Image ' + (i + 1) + '/' + total + ': ref=' + imgInfo.ref +
+      ' ' + imgInfo.width + 'x' + imgInfo.height + ' filter=' + imgInfo.filter +
+      ' size=' + imgInfo.rawSize + 'b ---');
+
     try {
       var didReplace = await reencodeImage(pdfDoc, imgInfo, quality, targetDPI);
-      if (didReplace) replaced++;
+      if (didReplace) {
+        replaced++;
+        _compressLog.push('  \u2713 REPLACED');
+      } else {
+        _compressLog.push('  \u2717 SKIPPED (returned false)');
+      }
     } catch (e) {
-      // Skip images that can't be processed
-      console.warn('Skipping image:', e.message || e);
+      _compressLog.push('  \u2717 ERROR: ' + (e.message || e));
+      _compressLog.push('  Stack: ' + (e.stack || 'n/a'));
     }
 
+    _compressLog.push('');
     processed++;
     if (processed % 3 === 0) {
       await yieldToUI();
@@ -85,11 +124,19 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
         pdfDoc.context.delete(analysis.photoshopRefs[j]);
       } catch (e) { /* skip */ }
     }
+    _compressLog.push('Stripped ' + analysis.photoshopRefs.length + ' Photoshop streams');
   }
+
+  _compressLog.push('');
+  _compressLog.push('=== Summary ===');
+  _compressLog.push('Processed: ' + processed + ', Replaced: ' + replaced);
 
   onProgress(0.96, 'Saving (' + replaced + ' images compressed)\u2026');
 
   var resultBytes = await pdfDoc.save();
+
+  _compressLog.push('Output size: ' + resultBytes.byteLength + ' bytes (' +
+    (resultBytes.byteLength / 1024).toFixed(1) + ' KB)');
 
   onProgress(1.0, 'Done');
 
@@ -350,13 +397,18 @@ function extractGrayChannel(pixels, count) {
 async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
   var PDFName = PDFLib.PDFName;
   var PDFRawStream = PDFLib.PDFRawStream;
+  var log = _compressLog;
 
   var obj = pdfDoc.context.lookup(imgInfo.ref);
-  if (!obj || !obj.contents) return false;
+  if (!obj) { log.push('  lookup(' + imgInfo.ref + ') returned null'); return false; }
+  if (!obj.contents) { log.push('  obj has no .contents (type: ' + (obj.constructor ? obj.constructor.name : typeof obj) + ')'); return false; }
 
   var originalSize = obj.contents.length || obj.contents.byteLength;
   var width = imgInfo.width;
   var height = imgInfo.height;
+
+  log.push('  obj.contents: ' + originalSize + 'b, first4=[' +
+    (originalSize > 3 ? [obj.contents[0], obj.contents[1], obj.contents[2], obj.contents[3]].map(function(b) { return '0x' + b.toString(16).padStart(2, '0'); }).join(' ') : 'n/a') + ']');
 
   // Step 1: Get pixel data on a canvas
   var canvas = document.createElement('canvas');
@@ -364,6 +416,7 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
 
   if (imgInfo.isJpeg || imgInfo.filter === 'DCTDecode') {
     // JPEG: raw bytes ARE the JPEG file - decode via browser
+    log.push('  JPEG path: createImageBitmap...');
     var blob = new Blob([obj.contents], { type: 'image/jpeg' });
     var bitmap = await createImageBitmap(blob);
     width = bitmap.width;
@@ -374,32 +427,31 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     ctx = canvas.getContext('2d');
     ctx.drawImage(bitmap, 0, 0);
     bitmap.close();
+    log.push('  JPEG decoded: ' + width + 'x' + height);
   } else {
     // FlateDecode or unfiltered: decode the raw stream bytes
-    var isLargeImg = originalSize > 10000;
     var rawBytes = null;
 
     // Step A: Try native inflate (multiple strategies for non-standard zlib)
+    log.push('  Step A: native inflate...');
     try {
       rawBytes = await inflateBytes(obj.contents);
+      log.push('  Step A result: ' + (rawBytes ? rawBytes.length + 'b' : 'null'));
     } catch (e) {
-      if (isLargeImg) console.warn('[img-compress] native inflate failed:', e.message || e);
+      log.push('  Step A error: ' + (e.message || e));
     }
-    if (isLargeImg) console.log('[img-compress] Step A inflate:', width + 'x' + height,
-      'compressed=' + originalSize + 'b, decoded=' + (rawBytes ? rawBytes.length : 'null') + 'b');
 
     // Step B: Fallback to pdf-lib decoder
     if (!rawBytes || rawBytes.length === 0) {
+      log.push('  Step B: pdf-lib decodePDFRawStream...');
       try {
         var decoded = PDFLib.decodePDFRawStream(obj);
         rawBytes = decoded.decode();
         if (!(rawBytes instanceof Uint8Array)) rawBytes = new Uint8Array(rawBytes);
-        if (isLargeImg) console.log('[img-compress] Step B pdf-lib ok:', rawBytes.length + 'b');
+        log.push('  Step B result: ' + rawBytes.length + 'b');
       } catch (e) {
-        if (isLargeImg) console.warn('[img-compress] Step B pdf-lib failed:', e.message || e);
-        // Both methods failed — cannot decode this stream
-        console.warn('[img-compress] Cannot decode stream for image', width + 'x' + height,
-          '(ref ' + imgInfo.ref + ', filter=' + imgInfo.filter + ', size=' + originalSize + ')');
+        log.push('  Step B error: ' + (e.message || e));
+        log.push('  FAILED: cannot decode stream');
         return false;
       }
     }
@@ -408,15 +460,16 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
 
     // Step C: Handle DecodeParms with Predictor
     var dp = readDecodeParms(obj.dict, pdfDoc.context);
-    if (isLargeImg) console.log('[img-compress] DecodeParms:', dp ? JSON.stringify(dp) : 'none');
+    log.push('  DecodeParms: ' + (dp ? JSON.stringify(dp) : 'none'));
     if (dp && dp.predictor > 1) {
       var components = dp.colors;
       if (dp.predictor === 2) {
         undoTIFFPredictor(rawBytes, dp.columns, components);
-        if (isLargeImg) console.log('[img-compress] TIFF Predictor 2 undone, cols=' + dp.columns + ' comp=' + components);
+        log.push('  TIFF Predictor 2 undone (cols=' + dp.columns + ' comp=' + components + ')');
       } else if (dp.predictor >= 10 && dp.predictor <= 15) {
         var rowWidth = dp.columns * components;
         rawBytes = undoPNGPredictors(rawBytes, rowWidth, components);
+        log.push('  PNG Predictor ' + dp.predictor + ' undone');
       }
     }
 
@@ -430,21 +483,21 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     } else if (rawBytes.length >= pixelCount * 4 * 0.9 && rawBytes.length <= pixelCount * 4 * 1.1) {
       channelsIn = 4;
     } else {
-      console.warn('[img-compress] Bad decoded size:', rawBytes.length,
-        'for', width + 'x' + height, 'expected', pixelCount * 3, 'or', pixelCount);
+      log.push('  FAILED: bad decoded size ' + rawBytes.length +
+        ' for ' + width + 'x' + height + ' (expected ' + pixelCount * 3 + ' or ' + pixelCount + ' or ' + pixelCount * 4 + ')');
       return false;
     }
-    if (isLargeImg) console.log('[img-compress] channels=' + channelsIn + ' creating ImageData ' + width + 'x' + height);
+    log.push('  channels=' + channelsIn + ', building ImageData ' + width + 'x' + height);
 
     // Step E: Build ImageData
     var imageData = rawPixelsToImageData(rawBytes, width, height, channelsIn);
-    if (!imageData) { if (isLargeImg) console.warn('[img-compress] rawPixelsToImageData returned null'); return false; }
+    if (!imageData) { log.push('  FAILED: rawPixelsToImageData returned null'); return false; }
 
     canvas.width = width;
     canvas.height = height;
     ctx = canvas.getContext('2d');
     ctx.putImageData(imageData, 0, 0);
-    if (isLargeImg) console.log('[img-compress] canvas ready, proceeding to encode');
+    log.push('  canvas ready');
   }
 
   // Step 2: Determine output dimensions (DPI downsampling)
@@ -458,6 +511,7 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
       outHeight = Math.max(1, Math.round(height * scale));
     }
   }
+  log.push('  output: ' + outWidth + 'x' + outHeight + (outWidth !== width ? ' (downsampled)' : ''));
 
   // Step 3: If we need to resize, draw scaled
   var outputCanvas = canvas;
@@ -473,6 +527,7 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
   var outCtx2 = outputCanvas.getContext('2d');
   var outPixels = outCtx2.getImageData(0, 0, outWidth, outHeight);
   var isGray = isGrayscalePixels(outPixels.data);
+  log.push('  grayscale: ' + isGray);
 
   var newBytes, newFilter, newColorSpace;
 
@@ -480,10 +535,12 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     // Try DeviceGray + FlateDecode (much smaller for mask/layer images)
     var grayData = extractGrayChannel(outPixels.data, outWidth * outHeight);
     var deflated = await deflateBytes(grayData);
+    log.push('  gray flate: ' + (deflated ? deflated.length + 'b' : 'null') + ' vs original ' + originalSize + 'b');
 
     if (deflated && deflated.length < originalSize) {
       // Also try JPEG and pick whichever is smaller
       var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
+      log.push('  gray jpeg: ' + jpegBytes.length + 'b');
 
       if (deflated.length <= jpegBytes.length) {
         newBytes = deflated;
@@ -494,17 +551,20 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
         newFilter = 'DCTDecode';
         newColorSpace = 'DeviceRGB';
       } else {
+        log.push('  SKIPPED: new size >= original');
         cleanupCanvases(canvas, outputCanvas);
         return false;
       }
     } else {
       // Deflate unavailable or not smaller, try JPEG fallback
       var jpegBytes2 = await canvasToJpegBytes(outputCanvas, quality);
+      log.push('  gray jpeg fallback: ' + jpegBytes2.length + 'b');
       if (jpegBytes2.length < originalSize) {
         newBytes = jpegBytes2;
         newFilter = 'DCTDecode';
         newColorSpace = 'DeviceRGB';
       } else {
+        log.push('  SKIPPED: new size >= original');
         cleanupCanvases(canvas, outputCanvas);
         return false;
       }
@@ -512,15 +572,18 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
   } else {
     // RGB image: use JPEG
     var jpegBytes3 = await canvasToJpegBytes(outputCanvas, quality);
+    log.push('  rgb jpeg: ' + jpegBytes3.length + 'b vs original ' + originalSize + 'b');
     if (jpegBytes3.length < originalSize) {
       newBytes = jpegBytes3;
       newFilter = 'DCTDecode';
       newColorSpace = 'DeviceRGB';
     } else {
+      log.push('  SKIPPED: new size >= original');
       cleanupCanvases(canvas, outputCanvas);
       return false;
     }
   }
+  log.push('  \u2192 ' + newFilter + ' ' + newColorSpace + ' ' + newBytes.length + 'b (was ' + originalSize + 'b)');
 
   // Cleanup canvases
   cleanupCanvases(canvas, outputCanvas);

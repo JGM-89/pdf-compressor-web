@@ -746,6 +746,21 @@ body {
   background: #253d5c;
 }
 
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 8px 0 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-link:hover {
+  color: var(--text-primary);
+}
+
 /* ── Done Screen ─────────────────────────────────────────────────────── */
 
 .done-icon {
