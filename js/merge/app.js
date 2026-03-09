@@ -296,7 +296,8 @@
 
     doMerge().then(function(resultBytes) {
       state.resultBytes = resultBytes;
-      state.resultFilename = 'merged.pdf';
+      var baseName = state.files[0].name.replace(/\.pdf$/i, '');
+      state.resultFilename = baseName + '-merged.pdf';
       showDone();
     }).catch(function(err) {
       console.error('Merge failed:', err);
