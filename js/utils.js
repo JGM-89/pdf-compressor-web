@@ -74,3 +74,12 @@ function canvasToJpegBytes(canvas, quality) {
     }, 'image/jpeg', quality / 100);
   });
 }
+
+/* ── Namespace for tool sub-pages ────────────────────────────────────── */
+var Utils = {
+  formatBytes: formatBytes,
+  formatReduction: formatReduction,
+  yieldToUI: yieldToUI,
+  downloadBlob: downloadBlob,
+  canvasToJpegBytes: canvasToJpegBytes
+};

@@ -1,5 +1,5 @@
 // Service Worker for PDF Compressor Web (PWA)
-var CACHE_NAME = 'pdf-tools-v1';
+var CACHE_NAME = 'pdf-tools-v2';
 
 var URLS_TO_CACHE = [
   '/',

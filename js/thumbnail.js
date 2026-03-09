@@ -44,7 +44,8 @@ var PDFThumbnails = (function () {
         'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
 
-    var loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) });
+    // Copy bytes so pdf.js worker doesn't detach the caller's buffer
+    var loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes).slice() });
     var pdfDoc = await loadingTask.promise;
     var total = pdfDoc.numPages;
     var canvases = [];
