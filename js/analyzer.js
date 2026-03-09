@@ -111,15 +111,37 @@ function collectRefs(obj, refSet, context) {
 }
 
 /**
+ * Resolve a value that may be an indirect reference (PDFRef).
+ * Some PDFs store /Type and /Subtype as indirect refs instead of
+ * direct name objects. This function dereferences them.
+ */
+function resolveValue(val, context) {
+  if (!val) return val;
+  // PDFRef has objectNumber property - resolve it
+  if (typeof val.objectNumber === 'number' && context) {
+    try { return context.lookup(val); } catch (e) { return val; }
+  }
+  return val;
+}
+
+/**
+ * Look up a dict key and resolve indirect references.
+ */
+function dictLookup(dict, key, context) {
+  var val = dict.get(key);
+  return resolveValue(val, context);
+}
+
+/**
  * Classify a single indirect object into a category.
  */
 function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
   var PDFName = PDFLib.PDFName;
   var PDFRawStream = PDFLib.PDFRawStream;
+  var ctx = pdfDoc.context;
 
   // Only streams have meaningful size
   var isStream = (obj instanceof PDFRawStream) ||
-                 (obj.constructor && obj.constructor.name === 'PDFRawStream') ||
                  (obj.contents !== undefined && obj.dict !== undefined);
 
   if (!isStream) return;
@@ -138,8 +160,9 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
   var dict = obj.dict;
   if (!dict || !dict.get) return;
 
-  var type = pdfNameStr(dict.get(PDFName.of('Type')));
-  var subtype = pdfNameStr(dict.get(PDFName.of('Subtype')));
+  // Resolve values that may be indirect references
+  var type = pdfNameStr(dictLookup(dict, PDFName.of('Type'), ctx));
+  var subtype = pdfNameStr(dictLookup(dict, PDFName.of('Subtype'), ctx));
 
   // Metadata streams
   if (type === 'Metadata' || subtype === 'XML') {
@@ -154,30 +177,29 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
     result.categories.image.count++;
 
     // Collect detailed image info for compression mode
-    var filter = dict.get(PDFName.of('Filter'));
+    var filter = dictLookup(dict, PDFName.of('Filter'), ctx);
     var filterName = pdfNameStr(filter);
     // Handle array filters like [FlateDecode]
     if (!filterName && filter && typeof filter.size === 'function') {
       if (filter.size() > 0) {
-        filterName = pdfNameStr(filter.get(0));
+        filterName = pdfNameStr(resolveValue(filter.get(0), ctx));
       }
     }
 
-    var width = pdfNumberVal(dict.get(PDFName.of('Width')));
-    var height = pdfNumberVal(dict.get(PDFName.of('Height')));
-    var bpc = pdfNumberVal(dict.get(PDFName.of('BitsPerComponent')));
-    var colorSpace = dict.get(PDFName.of('ColorSpace'));
+    var width = pdfNumberVal(dictLookup(dict, PDFName.of('Width'), ctx));
+    var height = pdfNumberVal(dictLookup(dict, PDFName.of('Height'), ctx));
+    var bpc = pdfNumberVal(dictLookup(dict, PDFName.of('BitsPerComponent'), ctx));
+    var colorSpace = dictLookup(dict, PDFName.of('ColorSpace'), ctx);
     var csName = pdfNameStr(colorSpace) || '';
     // Handle array color spaces like [ICCBased ref]
     if (!csName && colorSpace && typeof colorSpace.size === 'function' && colorSpace.size() > 0) {
-      csName = pdfNameStr(colorSpace.get(0)) || 'Unknown';
+      csName = pdfNameStr(resolveValue(colorSpace.get(0), ctx)) || 'Unknown';
     }
 
     var isMask = false;
     try {
-      var maskVal = dict.get(PDFName.of('ImageMask'));
+      var maskVal = dictLookup(dict, PDFName.of('ImageMask'), ctx);
       if (maskVal) {
-        // PDFBool has a .value property, or check toString()
         isMask = (maskVal.value === true) || (maskVal.toString() === 'true');
       }
     } catch (e) { /* ignore */ }
@@ -203,7 +225,7 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
     return;
   }
 
-  // Font streams
+  // Font streams (direct type/subtype match)
   if (type === 'Font' || subtype === 'Type1' || subtype === 'TrueType' ||
       subtype === 'Type0' || subtype === 'CIDFontType0' || subtype === 'CIDFontType2' ||
       subtype === 'Type1C' || subtype === 'CIDFontType0C' || subtype === 'OpenType') {
@@ -213,13 +235,28 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
     return;
   }
 
-  // Check if it's a font descriptor or font program
+  // Font program streams (Length1/2/3 markers from FontDescriptor)
   if (dict.get(PDFName.of('Length1')) || dict.get(PDFName.of('Length2')) ||
       dict.get(PDFName.of('Length3'))) {
     result.categories.font.size += size;
     result.categories.font.count++;
     result.hasText = true;
     return;
+  }
+
+  // CMap / ToUnicode streams (font-related, no Type/Subtype)
+  if (!type && !subtype && size < 100000) {
+    try {
+      var head = '';
+      for (var b = 0; b < Math.min(40, size); b++) {
+        head += String.fromCharCode(obj.contents[b]);
+      }
+      if (head.indexOf('/CIDInit') !== -1 || head.indexOf('begincmap') !== -1) {
+        result.categories.font.size += size;
+        result.categories.font.count++;
+        return;
+      }
+    } catch (e) { /* ignore */ }
   }
 
   // Everything else
