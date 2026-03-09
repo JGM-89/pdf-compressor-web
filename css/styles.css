@@ -56,8 +56,13 @@ body {
 .header-content {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   padding: 16px 24px 8px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
 }
 
 .header-title {
@@ -72,9 +77,25 @@ body {
   color: var(--text-muted);
 }
 
+.header-github {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.header-github:hover {
+  color: var(--accent-blue);
+}
+
 .header-byline {
   font-size: 13px;
   color: var(--text-muted);
+  text-decoration: none;
+}
+
+.header-byline:hover {
+  color: var(--accent-blue);
 }
 
 .header-divider {
@@ -178,6 +199,22 @@ body {
   color: var(--text-muted);
   opacity: 0.6;
   margin-top: 6px;
+}
+
+.large-file-link {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 8px;
+  padding: 0;
+  opacity: 0.7;
+}
+
+.large-file-link:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 /* ── Progress ────────────────────────────────────────────────────────── */
@@ -772,4 +809,41 @@ body {
 
 .hidden {
   display: none !important;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+
+.footer {
+  max-width: 600px;
+  margin: 40px auto 20px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+}
+
+.footer-disclaimer {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.footer-links {
+  font-size: 12px;
+}
+
+.footer-links a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: var(--accent-blue);
+}
+
+.footer-sep {
+  color: var(--text-muted);
+  opacity: 0.4;
+  margin: 0 6px;
 }

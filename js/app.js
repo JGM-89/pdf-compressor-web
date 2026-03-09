@@ -101,9 +101,30 @@
     document.addEventListener('drop', function(e) { e.preventDefault(); });
   }
 
+  var maxFileSizeMB = 200;
+
+  function initLargeFileButton() {
+    var btn = $('#btn-large-file');
+    if (!btn) return;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation(); // don't trigger file picker on the drop zone
+      var ok = confirm(
+        'This will remove the file size limit.\n\n' +
+        'Very large PDFs may cause your browser to slow down, freeze, or crash ' +
+        'because all processing happens in your browser\'s memory.\n\n' +
+        'Make sure to save any other work first. Continue?'
+      );
+      if (ok) {
+        maxFileSizeMB = Infinity;
+        $('.drop-hint').textContent = 'No file size limit — large files may be slow';
+        btn.style.display = 'none';
+      }
+    });
+  }
+
   function handleFile(file) {
-    if (file.size > 200 * 1024 * 1024) {
-      alert('File is too large. Maximum size is 200 MB.');
+    if (file.size > maxFileSizeMB * 1024 * 1024) {
+      alert('File is too large. Maximum size is ' + maxFileSizeMB + ' MB.\n\nUse the "larger file" option below to remove this limit.');
       return;
     }
 
@@ -602,6 +623,7 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     initDropZone();
+    initLargeFileButton();
     initOptionCards();
     initControls();
     initButtons();
