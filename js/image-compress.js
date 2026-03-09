@@ -4,6 +4,7 @@
  * optionally downsampling to a target DPI.
  * Grayscale images are detected and written as DeviceGray + FlateDecode
  * for much better compression on mask/layer images from Photoshop.
+ * Handles FlateDecode streams with TIFF/PNG Predictor (DecodeParms).
  * Text, vectors, and fonts are untouched.
  */
 
@@ -95,11 +96,124 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
   return resultBytes;
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Resolve a pdf-lib dictionary value, following indirect references.
+ */
+function resolveVal(val, ctx) {
+  if (!val) return val;
+  if (typeof val.objectNumber === 'number' && ctx) {
+    try { return ctx.lookup(val); } catch (e) { return val; }
+  }
+  return val;
+}
+
+/**
+ * Read a numeric value from a pdf-lib object.
+ */
+function numVal(obj) {
+  if (!obj) return 0;
+  if (typeof obj === 'number') return obj;
+  if (typeof obj.value === 'number') return obj.value;
+  return parseFloat(obj.toString()) || 0;
+}
+
+/**
+ * Read DecodeParms from a stream dictionary.
+ * Returns { predictor, colors, columns, bpc } or null.
+ */
+function readDecodeParms(dict, ctx) {
+  var PDFName = PDFLib.PDFName;
+  var dp = dict.get(PDFName.of('DecodeParms'));
+  dp = resolveVal(dp, ctx);
+  if (!dp || !dp.get) return null;
+
+  return {
+    predictor: numVal(resolveVal(dp.get(PDFName.of('Predictor')), ctx)) || 1,
+    colors:    numVal(resolveVal(dp.get(PDFName.of('Colors')), ctx)) || 1,
+    columns:   numVal(resolveVal(dp.get(PDFName.of('Columns')), ctx)) || 1,
+    bpc:       numVal(resolveVal(dp.get(PDFName.of('BitsPerComponent')), ctx)) || 8
+  };
+}
+
+/**
+ * Undo TIFF Predictor 2 (horizontal differencing) in-place.
+ * Each sample = (delta + previous_sample) mod 256.
+ */
+function undoTIFFPredictor(bytes, width, components) {
+  var rowSize = width * components;
+  var rows = Math.floor(bytes.length / rowSize);
+  for (var y = 0; y < rows; y++) {
+    var off = y * rowSize;
+    // First pixel in each row is absolute; remaining are deltas
+    for (var x = components; x < rowSize; x++) {
+      bytes[off + x] = (bytes[off + x] + bytes[off + x - components]) & 0xFF;
+    }
+  }
+}
+
+/**
+ * Undo PNG Predictors (types 10-15) in-place.
+ * Each row starts with a filter-type byte, followed by filtered pixel data.
+ */
+function undoPNGPredictors(bytes, rowWidth, components) {
+  // rowWidth = columns * components (bytes per row EXCLUDING the filter byte)
+  var stride = rowWidth + 1; // +1 for the filter-type byte
+  var rows = Math.floor(bytes.length / stride);
+  // We'll decode in-place; need to read from bottom up or use a temporary row
+  // Actually, we must decode top-down because Up/Average/Paeth reference the prior row
+  var prev = new Uint8Array(rowWidth); // previous decoded row (starts as zeros)
+  var outputOffset = 0;
+
+  for (var y = 0; y < rows; y++) {
+    var inputOffset = y * stride;
+    var filterType = bytes[inputOffset];
+    var rowStart = inputOffset + 1;
+
+    for (var x = 0; x < rowWidth; x++) {
+      var raw = bytes[rowStart + x];
+      var a = x >= components ? bytes[outputOffset + x - components] : 0; // left
+      var b = prev[x]; // above
+      var c = (x >= components) ? prev[x - components] : 0; // upper-left
+      var val;
+
+      switch (filterType) {
+        case 0: val = raw; break;                               // None
+        case 1: val = (raw + a) & 0xFF; break;                  // Sub
+        case 2: val = (raw + b) & 0xFF; break;                  // Up
+        case 3: val = (raw + ((a + b) >>> 1)) & 0xFF; break;    // Average
+        case 4: val = (raw + paeth(a, b, c)) & 0xFF; break;     // Paeth
+        default: val = raw;
+      }
+
+      // Write decoded byte at the output position (packed, no filter byte)
+      bytes[outputOffset + x] = val;
+    }
+
+    // Save current decoded row as prev for next iteration
+    prev.set(bytes.subarray(outputOffset, outputOffset + rowWidth));
+    outputOffset += rowWidth;
+  }
+
+  // Return a view of just the decoded data (rows × rowWidth, no filter bytes)
+  return bytes.subarray(0, rows * rowWidth);
+}
+
+/** Paeth predictor helper */
+function paeth(a, b, c) {
+  var p = a + b - c;
+  var pa = Math.abs(p - a);
+  var pb = Math.abs(p - b);
+  var pc = Math.abs(p - c);
+  if (pa <= pb && pa <= pc) return a;
+  if (pb <= pc) return b;
+  return c;
+}
+
 /**
  * Compress a Uint8Array using the Compression Streams API (zlib/deflate).
- * Falls back to null if CompressionStream is not available.
- * @param {Uint8Array} input - Raw bytes to compress
- * @returns {Promise<Uint8Array|null>} Compressed bytes, or null if unavailable
+ * Returns null if CompressionStream is not available.
  */
 async function deflateBytes(input) {
   if (typeof CompressionStream === 'undefined') return null;
@@ -131,8 +245,6 @@ async function deflateBytes(input) {
 /**
  * Check if canvas pixel data is effectively grayscale (R ≈ G ≈ B).
  * Samples up to 1000 pixels for speed.
- * @param {Uint8ClampedArray} pixels - RGBA pixel data
- * @returns {boolean}
  */
 function isGrayscalePixels(pixels) {
   var pixelCount = pixels.length / 4;
@@ -148,9 +260,6 @@ function isGrayscalePixels(pixels) {
 
 /**
  * Extract the gray channel from RGBA pixel data.
- * @param {Uint8ClampedArray} pixels - RGBA pixel data
- * @param {number} count - Number of pixels
- * @returns {Uint8Array} Single-channel grayscale bytes
  */
 function extractGrayChannel(pixels, count) {
   var gray = new Uint8Array(count);
@@ -160,10 +269,12 @@ function extractGrayChannel(pixels, count) {
   return gray;
 }
 
+// ── Core re-encode logic ────────────────────────────────────────────
+
 /**
  * Re-encode a single image in the PDF.
- * Detects grayscale images and writes them as DeviceGray + FlateDecode
- * for dramatically better compression on mask/layer images.
+ * Handles TIFF/PNG Predictor in FlateDecode streams.
+ * Detects grayscale images and writes them as DeviceGray + FlateDecode.
  * @returns {boolean} true if the image was replaced
  */
 async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
@@ -195,21 +306,49 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     bitmap.close();
   } else {
     // FlateDecode or unfiltered: decode the raw stream bytes
-    var decoded;
+    var rawBytes;
     try {
-      decoded = PDFLib.decodePDFRawStream(obj);
-      var rawBytes = decoded.decode();
-      // rawBytes might be a Uint8Array
+      var decoded = PDFLib.decodePDFRawStream(obj);
+      rawBytes = decoded.decode();
       if (!(rawBytes instanceof Uint8Array)) {
         rawBytes = new Uint8Array(rawBytes);
       }
     } catch (e) {
-      // If decodePDFRawStream is not available or fails, skip
+      console.warn('decodePDFRawStream failed:', e.message || e);
+      return false;
+    }
+
+    // Check for DecodeParms with Predictor (pdf-lib doesn't handle these)
+    var dp = readDecodeParms(obj.dict, pdfDoc.context);
+    if (dp && dp.predictor > 1) {
+      var components = dp.colors;
+      if (dp.predictor === 2) {
+        // TIFF Predictor 2: horizontal differencing
+        undoTIFFPredictor(rawBytes, dp.columns, components);
+      } else if (dp.predictor >= 10 && dp.predictor <= 15) {
+        // PNG Predictors
+        var rowWidth = dp.columns * components;
+        rawBytes = undoPNGPredictors(rawBytes, rowWidth, components);
+      }
+    }
+
+    // Auto-detect component count from decoded byte length
+    var pixelCount = width * height;
+    var channelsIn;
+    if (rawBytes.length >= pixelCount * 3 * 0.9 && rawBytes.length <= pixelCount * 3 * 1.1) {
+      channelsIn = 3;
+    } else if (rawBytes.length >= pixelCount * 0.9 && rawBytes.length <= pixelCount * 1.1) {
+      channelsIn = 1;
+    } else if (rawBytes.length >= pixelCount * 4 * 0.9 && rawBytes.length <= pixelCount * 4 * 1.1) {
+      channelsIn = 4;
+    } else {
+      console.warn('Unexpected decoded size:', rawBytes.length,
+        'for', width, 'x', height, '- expected', pixelCount * 3, 'or', pixelCount);
       return false;
     }
 
     // Build ImageData from raw pixel bytes
-    var imageData = rawPixelsToImageData(rawBytes, width, height, imgInfo.colorSpace, imgInfo.bpc);
+    var imageData = rawPixelsToImageData(rawBytes, width, height, channelsIn);
     if (!imageData) return false;
 
     canvas.width = width;
@@ -222,8 +361,6 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
   var outWidth = width;
   var outHeight = height;
   if (targetDPI > 0) {
-    // Heuristic: assume most embedded images are ~300 DPI
-    // If the image is large enough that it's likely > targetDPI, scale down
     var assumedDPI = 300;
     if (width > 1000 || height > 1000) {
       var scale = Math.min(1.0, targetDPI / assumedDPI);
@@ -267,15 +404,14 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
         newFilter = 'DCTDecode';
         newColorSpace = 'DeviceRGB';
       } else {
-        // Neither is smaller
         cleanupCanvases(canvas, outputCanvas);
         return false;
       }
     } else {
       // Deflate unavailable or not smaller, try JPEG fallback
-      var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
-      if (jpegBytes.length < originalSize) {
-        newBytes = jpegBytes;
+      var jpegBytes2 = await canvasToJpegBytes(outputCanvas, quality);
+      if (jpegBytes2.length < originalSize) {
+        newBytes = jpegBytes2;
         newFilter = 'DCTDecode';
         newColorSpace = 'DeviceRGB';
       } else {
@@ -284,10 +420,10 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
       }
     }
   } else {
-    // RGB image: use JPEG as before
-    var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
-    if (jpegBytes.length < originalSize) {
-      newBytes = jpegBytes;
+    // RGB image: use JPEG
+    var jpegBytes3 = await canvasToJpegBytes(outputCanvas, quality);
+    if (jpegBytes3.length < originalSize) {
+      newBytes = jpegBytes3;
       newFilter = 'DCTDecode';
       newColorSpace = 'DeviceRGB';
     } else {
@@ -330,26 +466,32 @@ function cleanupCanvases(canvas, outputCanvas) {
 
 /**
  * Convert raw pixel bytes from a PDF image to an ImageData object.
- * Handles DeviceRGB and DeviceGray color spaces.
+ * @param {Uint8Array} rawBytes - Decoded pixel data
+ * @param {number} width
+ * @param {number} height
+ * @param {number} channelsIn - 1 (gray), 3 (RGB), or 4 (CMYK/RGBA)
  */
-function rawPixelsToImageData(rawBytes, width, height, colorSpace, bpc) {
-  var isGray = (colorSpace || '').indexOf('Gray') !== -1;
-  var channelsIn = isGray ? 1 : 3;
-  var expectedSize = width * height * channelsIn;
+function rawPixelsToImageData(rawBytes, width, height, channelsIn) {
+  var pixelCount = width * height;
+  var expectedSize = pixelCount * channelsIn;
 
-  // Sanity check: raw bytes should be approximately the expected size
   if (rawBytes.length < expectedSize * 0.8) {
-    return null; // Unexpected format, skip
+    return null;
   }
 
-  var pixels = new Uint8ClampedArray(width * height * 4);
+  var pixels = new Uint8ClampedArray(pixelCount * 4);
 
-  for (var i = 0; i < width * height; i++) {
-    if (isGray) {
+  for (var i = 0; i < pixelCount; i++) {
+    if (channelsIn === 1) {
       var g = rawBytes[i] || 0;
       pixels[i * 4] = g;
       pixels[i * 4 + 1] = g;
       pixels[i * 4 + 2] = g;
+    } else if (channelsIn === 4) {
+      // Treat as RGBA (or skip CMYK — filtered earlier)
+      pixels[i * 4] = rawBytes[i * 4] || 0;
+      pixels[i * 4 + 1] = rawBytes[i * 4 + 1] || 0;
+      pixels[i * 4 + 2] = rawBytes[i * 4 + 2] || 0;
     } else {
       pixels[i * 4] = rawBytes[i * 3] || 0;
       pixels[i * 4 + 1] = rawBytes[i * 3 + 1] || 0;
