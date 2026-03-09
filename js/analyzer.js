@@ -247,11 +247,16 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
   }
 
   // CMap / ToUnicode streams (font-related, no Type/Subtype)
+  // Streams may be Flate-compressed, so decode before checking
   if (!type && !subtype && size < 100000) {
     try {
+      var cmapBytes = obj.contents;
+      if (dict.get(PDFName.of('Filter'))) {
+        cmapBytes = PDFLib.decodePDFRawStream(obj).decode();
+      }
       var head = '';
-      for (var b = 0; b < Math.min(40, size); b++) {
-        head += String.fromCharCode(obj.contents[b]);
+      for (var b = 0; b < Math.min(40, cmapBytes.length); b++) {
+        head += String.fromCharCode(cmapBytes[b]);
       }
       if (head.indexOf('/CIDInit') !== -1 || head.indexOf('begincmap') !== -1) {
         result.categories.font.size += size;
@@ -262,12 +267,19 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
   }
 
   // Photoshop resource data streams (8BIM signature, no Type/Subtype)
+  // Streams may be Flate-compressed, so decode before checking signature
   if (!type && !subtype && size >= 4) {
     try {
-      if (obj.contents[0] === 0x38 &&   // '8'
-          obj.contents[1] === 0x42 &&   // 'B'
-          obj.contents[2] === 0x49 &&   // 'I'
-          obj.contents[3] === 0x4D) {   // 'M'
+      var bytes = obj.contents;
+      // If stream has a Filter, decode it to get the real bytes
+      if (dict.get(PDFName.of('Filter'))) {
+        bytes = PDFLib.decodePDFRawStream(obj).decode();
+      }
+      if (bytes.length >= 4 &&
+          bytes[0] === 0x38 &&   // '8'
+          bytes[1] === 0x42 &&   // 'B'
+          bytes[2] === 0x49 &&   // 'I'
+          bytes[3] === 0x4D) {   // 'M'
         result.categories.photoshop.size += size;
         result.categories.photoshop.count++;
         result.photoshopRefs.push(ref);
