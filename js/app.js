@@ -44,6 +44,9 @@
     var target = $('#screen-' + name);
     if (target) target.classList.add('active');
     state.screen = name;
+    // Show marketing sections only on the drop screen
+    var mktg = document.getElementById('marketing-sections');
+    if (mktg) mktg.classList.toggle('hidden', name !== 'drop');
     // Scroll to top
     window.scrollTo(0, 0);
   }

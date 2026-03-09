@@ -847,3 +847,209 @@ body {
   opacity: 0.4;
   margin: 0 6px;
 }
+
+.footer-byline {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  opacity: 0.6;
+}
+
+.footer-byline a {
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.footer-byline a:hover {
+  color: var(--accent-blue);
+}
+
+/* ── Marketing Sections ─────────────────────────────────────────────── */
+
+.marketing {
+  width: 100%;
+  max-width: 860px;
+  padding: 0 24px;
+  margin: 0 auto;
+}
+
+.marketing-section {
+  margin-top: 48px;
+}
+
+.marketing-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+/* Feature grid */
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.feature-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.feature-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.feature-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.feature-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Steps row */
+
+.steps-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.step-card {
+  flex: 1;
+  max-width: 220px;
+  text-align: center;
+  padding: 0 12px;
+}
+
+.step-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-blue);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+.step-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.step-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.step-connector {
+  width: 32px;
+  height: 2px;
+  background: var(--border-color);
+  flex-shrink: 0;
+  margin-top: 18px;
+}
+
+/* Compression modes explained */
+
+.modes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mode-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+.mode-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.mode-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mode-dot-blue  { background: var(--accent-blue); }
+.mode-dot-amber { background: var(--warning-amber); }
+.mode-dot-green { background: var(--success-green); }
+
+.mode-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mode-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Ko-fi support */
+
+.marketing-section-support {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.support-text {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.kofi-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.kofi-link:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+
+@media (max-width: 580px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .steps-row {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .step-connector {
+    width: 2px;
+    height: 20px;
+    margin: 0;
+  }
+}
