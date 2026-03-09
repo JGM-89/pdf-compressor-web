@@ -2,13 +2,16 @@
  * Mode 2: Image compression.
  * Re-encodes embedded raster images at lower JPEG quality,
  * optionally downsampling to a target DPI.
+ * Grayscale images are detected and written as DeviceGray + FlateDecode
+ * for much better compression on mask/layer images from Photoshop.
  * Text, vectors, and fonts are untouched.
  */
 
 /* global PDFLib, yieldToUI, canvasToJpegBytes */
 
 /**
- * Compress images in a PDF by re-encoding them as JPEG.
+ * Compress images in a PDF by re-encoding them as JPEG (or Flate for grayscale).
+ * Also strips metadata and Photoshop data.
  * @param {Uint8Array} pdfBytes   - Original PDF bytes
  * @param {object}     analysis   - Analysis result (contains .images array)
  * @param {number}     quality    - JPEG quality 20-95
@@ -25,9 +28,8 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
 
   var pdfDoc = await PDFDocument.load(pdfBytes, { updateMetadata: false });
 
-  // Filter to compressible images (skip masks, tiny icons, unsupported formats)
+  // Filter to compressible images (skip tiny icons and unsupported formats)
   var images = analysis.images.filter(function(img) {
-    if (img.isMask) return false;
     if (img.width < 8 || img.height < 8) return false;
     // Only handle JPEG and Flate-encoded images
     if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') return false;
@@ -94,7 +96,74 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
 }
 
 /**
+ * Compress a Uint8Array using the Compression Streams API (zlib/deflate).
+ * Falls back to null if CompressionStream is not available.
+ * @param {Uint8Array} input - Raw bytes to compress
+ * @returns {Promise<Uint8Array|null>} Compressed bytes, or null if unavailable
+ */
+async function deflateBytes(input) {
+  if (typeof CompressionStream === 'undefined') return null;
+
+  var cs = new CompressionStream('deflate');
+  var writer = cs.writable.getWriter();
+  writer.write(input);
+  writer.close();
+
+  var reader = cs.readable.getReader();
+  var chunks = [];
+  while (true) {
+    var result = await reader.read();
+    if (result.done) break;
+    chunks.push(result.value);
+  }
+
+  var totalLen = 0;
+  for (var i = 0; i < chunks.length; i++) totalLen += chunks[i].length;
+  var output = new Uint8Array(totalLen);
+  var offset = 0;
+  for (var i = 0; i < chunks.length; i++) {
+    output.set(chunks[i], offset);
+    offset += chunks[i].length;
+  }
+  return output;
+}
+
+/**
+ * Check if canvas pixel data is effectively grayscale (R ≈ G ≈ B).
+ * Samples up to 1000 pixels for speed.
+ * @param {Uint8ClampedArray} pixels - RGBA pixel data
+ * @returns {boolean}
+ */
+function isGrayscalePixels(pixels) {
+  var pixelCount = pixels.length / 4;
+  var step = Math.max(1, Math.floor(pixelCount / 1000));
+  for (var i = 0; i < pixels.length; i += 4 * step) {
+    if (Math.abs(pixels[i] - pixels[i + 1]) > 2 ||
+        Math.abs(pixels[i] - pixels[i + 2]) > 2) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Extract the gray channel from RGBA pixel data.
+ * @param {Uint8ClampedArray} pixels - RGBA pixel data
+ * @param {number} count - Number of pixels
+ * @returns {Uint8Array} Single-channel grayscale bytes
+ */
+function extractGrayChannel(pixels, count) {
+  var gray = new Uint8Array(count);
+  for (var i = 0; i < count; i++) {
+    gray[i] = pixels[i * 4];
+  }
+  return gray;
+}
+
+/**
  * Re-encode a single image in the PDF.
+ * Detects grayscale images and writes them as DeviceGray + FlateDecode
+ * for dramatically better compression on mask/layer images.
  * @returns {boolean} true if the image was replaced
  */
 async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
@@ -173,37 +242,90 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     outCtx.drawImage(canvas, 0, 0, outWidth, outHeight);
   }
 
-  // Step 4: Export as JPEG
-  var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
+  // Step 4: Check if image is grayscale and try Flate-gray path
+  var outCtx2 = outputCanvas.getContext('2d');
+  var outPixels = outCtx2.getImageData(0, 0, outWidth, outHeight);
+  var isGray = isGrayscalePixels(outPixels.data);
+
+  var newBytes, newFilter, newColorSpace;
+
+  if (isGray) {
+    // Try DeviceGray + FlateDecode (much smaller for mask/layer images)
+    var grayData = extractGrayChannel(outPixels.data, outWidth * outHeight);
+    var deflated = await deflateBytes(grayData);
+
+    if (deflated && deflated.length < originalSize) {
+      // Also try JPEG and pick whichever is smaller
+      var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
+
+      if (deflated.length <= jpegBytes.length) {
+        newBytes = deflated;
+        newFilter = 'FlateDecode';
+        newColorSpace = 'DeviceGray';
+      } else if (jpegBytes.length < originalSize) {
+        newBytes = jpegBytes;
+        newFilter = 'DCTDecode';
+        newColorSpace = 'DeviceRGB';
+      } else {
+        // Neither is smaller
+        cleanupCanvases(canvas, outputCanvas);
+        return false;
+      }
+    } else {
+      // Deflate unavailable or not smaller, try JPEG fallback
+      var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
+      if (jpegBytes.length < originalSize) {
+        newBytes = jpegBytes;
+        newFilter = 'DCTDecode';
+        newColorSpace = 'DeviceRGB';
+      } else {
+        cleanupCanvases(canvas, outputCanvas);
+        return false;
+      }
+    }
+  } else {
+    // RGB image: use JPEG as before
+    var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
+    if (jpegBytes.length < originalSize) {
+      newBytes = jpegBytes;
+      newFilter = 'DCTDecode';
+      newColorSpace = 'DeviceRGB';
+    } else {
+      cleanupCanvases(canvas, outputCanvas);
+      return false;
+    }
+  }
 
   // Cleanup canvases
+  cleanupCanvases(canvas, outputCanvas);
+
+  // Step 5: Replace the stream in the PDF
+  var newDict = pdfDoc.context.obj({});
+  newDict.set(PDFName.of('Type'), PDFName.of('XObject'));
+  newDict.set(PDFName.of('Subtype'), PDFName.of('Image'));
+  newDict.set(PDFName.of('Width'), pdfDoc.context.obj(outWidth));
+  newDict.set(PDFName.of('Height'), pdfDoc.context.obj(outHeight));
+  newDict.set(PDFName.of('ColorSpace'), PDFName.of(newColorSpace));
+  newDict.set(PDFName.of('BitsPerComponent'), pdfDoc.context.obj(8));
+  newDict.set(PDFName.of('Filter'), PDFName.of(newFilter));
+  newDict.set(PDFName.of('Length'), pdfDoc.context.obj(newBytes.length));
+
+  var newStream = new PDFRawStream(newDict, newBytes);
+  pdfDoc.context.assign(imgInfo.ref, newStream);
+
+  return true;
+}
+
+/**
+ * Free canvas memory.
+ */
+function cleanupCanvases(canvas, outputCanvas) {
   canvas.width = 1;
   canvas.height = 1;
   if (outputCanvas !== canvas) {
     outputCanvas.width = 1;
     outputCanvas.height = 1;
   }
-
-  // Step 5: Only replace if result is smaller
-  if (jpegBytes.length >= originalSize) {
-    return false;
-  }
-
-  // Step 6: Replace the stream in the PDF
-  var newDict = pdfDoc.context.obj({});
-  newDict.set(PDFName.of('Type'), PDFName.of('XObject'));
-  newDict.set(PDFName.of('Subtype'), PDFName.of('Image'));
-  newDict.set(PDFName.of('Width'), pdfDoc.context.obj(outWidth));
-  newDict.set(PDFName.of('Height'), pdfDoc.context.obj(outHeight));
-  newDict.set(PDFName.of('ColorSpace'), PDFName.of('DeviceRGB'));
-  newDict.set(PDFName.of('BitsPerComponent'), pdfDoc.context.obj(8));
-  newDict.set(PDFName.of('Filter'), PDFName.of('DCTDecode'));
-  newDict.set(PDFName.of('Length'), pdfDoc.context.obj(jpegBytes.length));
-
-  var newStream = new PDFRawStream(newDict, jpegBytes);
-  pdfDoc.context.assign(imgInfo.ref, newStream);
-
-  return true;
 }
 
 /**
