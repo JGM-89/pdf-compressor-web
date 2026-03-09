@@ -333,48 +333,49 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     bitmap.close();
   } else {
     // FlateDecode or unfiltered: decode the raw stream bytes
-    // Use native DecompressionStream as primary decoder (more reliable than pdf-lib
-    // for streams with non-standard zlib params or DecodeParms with Predictor).
+    var isLargeImg = originalSize > 10000;
     var rawBytes = null;
 
-    if (imgInfo.filter === 'FlateDecode') {
-      // Try native inflate first
+    // Step A: Try native inflate (most reliable for all zlib variants)
+    try {
       rawBytes = await inflateBytes(obj.contents);
+      if (isLargeImg) console.log('[img-compress] native inflate:', width + 'x' + height,
+        'compressed=' + originalSize + 'b, decoded=' + (rawBytes ? rawBytes.length : 'null') + 'b');
+    } catch (e) {
+      if (isLargeImg) console.warn('[img-compress] native inflate error:', e.message || e);
     }
 
+    // Step B: Fallback to pdf-lib decoder
     if (!rawBytes) {
-      // Fallback: pdf-lib's decoder
       try {
         var decoded = PDFLib.decodePDFRawStream(obj);
         rawBytes = decoded.decode();
-        if (!(rawBytes instanceof Uint8Array)) {
-          rawBytes = new Uint8Array(rawBytes);
-        }
+        if (!(rawBytes instanceof Uint8Array)) rawBytes = new Uint8Array(rawBytes);
+        if (isLargeImg) console.log('[img-compress] pdf-lib decode ok:', rawBytes.length + 'b');
       } catch (e) {
-        console.warn('All decoders failed for image:', e.message || e);
-        return false;
+        if (isLargeImg) console.warn('[img-compress] pdf-lib decode error:', e.message || e);
+        // Last resort: treat as uncompressed raw bytes
+        rawBytes = new Uint8Array(obj.contents);
       }
     }
 
-    if (!(rawBytes instanceof Uint8Array)) {
-      rawBytes = new Uint8Array(rawBytes);
-    }
+    if (!(rawBytes instanceof Uint8Array)) rawBytes = new Uint8Array(rawBytes);
 
-    // Handle DecodeParms with Predictor (pdf-lib and native inflate don't undo these)
+    // Step C: Handle DecodeParms with Predictor
     var dp = readDecodeParms(obj.dict, pdfDoc.context);
+    if (isLargeImg) console.log('[img-compress] DecodeParms:', dp ? JSON.stringify(dp) : 'none');
     if (dp && dp.predictor > 1) {
       var components = dp.colors;
       if (dp.predictor === 2) {
-        // TIFF Predictor 2: horizontal differencing
         undoTIFFPredictor(rawBytes, dp.columns, components);
+        if (isLargeImg) console.log('[img-compress] TIFF Predictor 2 undone, cols=' + dp.columns + ' comp=' + components);
       } else if (dp.predictor >= 10 && dp.predictor <= 15) {
-        // PNG Predictors
         var rowWidth = dp.columns * components;
         rawBytes = undoPNGPredictors(rawBytes, rowWidth, components);
       }
     }
 
-    // Auto-detect component count from decoded byte length
+    // Step D: Auto-detect component count
     var pixelCount = width * height;
     var channelsIn;
     if (rawBytes.length >= pixelCount * 3 * 0.9 && rawBytes.length <= pixelCount * 3 * 1.1) {
@@ -384,19 +385,21 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     } else if (rawBytes.length >= pixelCount * 4 * 0.9 && rawBytes.length <= pixelCount * 4 * 1.1) {
       channelsIn = 4;
     } else {
-      console.warn('Unexpected decoded size:', rawBytes.length,
-        'for', width, 'x', height, '- expected', pixelCount * 3, 'or', pixelCount);
+      console.warn('[img-compress] Bad decoded size:', rawBytes.length,
+        'for', width + 'x' + height, 'expected', pixelCount * 3, 'or', pixelCount);
       return false;
     }
+    if (isLargeImg) console.log('[img-compress] channels=' + channelsIn + ' creating ImageData ' + width + 'x' + height);
 
-    // Build ImageData from raw pixel bytes
+    // Step E: Build ImageData
     var imageData = rawPixelsToImageData(rawBytes, width, height, channelsIn);
-    if (!imageData) return false;
+    if (!imageData) { if (isLargeImg) console.warn('[img-compress] rawPixelsToImageData returned null'); return false; }
 
     canvas.width = width;
     canvas.height = height;
     ctx = canvas.getContext('2d');
     ctx.putImageData(imageData, 0, 0);
+    if (isLargeImg) console.log('[img-compress] canvas ready, proceeding to encode');
   }
 
   // Step 2: Determine output dimensions (DPI downsampling)
