@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jgm-89.github.io/pdf-compressor-web/sitemap.xml
