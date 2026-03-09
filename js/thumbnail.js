@@ -33,7 +33,7 @@ var PDFThumbnails = (function () {
    * @param {ArrayBuffer} pdfBytes - raw PDF bytes
    * @param {number} [maxSize=160] - max thumbnail dimension
    * @param {Function} [onProgress] - called with (rendered, total)
-   * @returns {Promise<{canvases: HTMLCanvasElement[], pdfDoc: Object, pageCount: number}>}
+   * @returns {Promise<{canvases: HTMLCanvasElement[], pageCount: number}>}
    */
   async function renderAll(pdfBytes, maxSize, onProgress) {
     maxSize = maxSize || 160;
@@ -57,7 +57,10 @@ var PDFThumbnails = (function () {
       if (onProgress) onProgress(i, total);
     }
 
-    return { canvases: canvases, pdfDoc: pdfDoc, pageCount: total };
+    // Release pdf.js document to free memory
+    pdfDoc.destroy();
+
+    return { canvases: canvases, pageCount: total };
   }
 
   return {

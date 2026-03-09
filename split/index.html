@@ -38,6 +38,11 @@
 
   <link rel="stylesheet" href="../css/shared.css">
   <link rel="stylesheet" href="../css/split.css">
+
+  <!-- PWA -->
+  <link rel="manifest" href="../manifest.json">
+  <meta name="theme-color" content="#0b1929">
+  <link rel="apple-touch-icon" href="../icons/icon-192.png">
 </head>
 <body>
 
@@ -73,7 +78,7 @@
       <h2 class="screen-title">Split a PDF</h2>
       <p class="screen-subtitle">Extract individual pages or page ranges from a PDF file.</p>
 
-      <div id="drop-zone" class="drop-zone" tabindex="0">
+      <div id="drop-zone" class="drop-zone" role="button" aria-label="Select a PDF file to split" tabindex="0">
         <div class="drop-zone-inner">
           <div class="drop-icon">
             <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
@@ -296,5 +301,11 @@
   <script src="../js/utils.js"></script>
   <script src="../js/thumbnail.js"></script>
   <script src="../js/split/app.js"></script>
+
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  }
+  </script>
 </body>
 </html>

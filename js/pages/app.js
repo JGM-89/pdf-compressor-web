@@ -88,18 +88,9 @@
       card.dataset.idx = idx;
       card.draggable = true;
 
-      // Canvas with rotation transform
-      var canvasWrap = document.createElement('div');
-      canvasWrap.style.overflow = 'hidden';
-      var clonedCanvas = pg.canvas.cloneNode(true);
-      var ctx = clonedCanvas.getContext('2d');
-      clonedCanvas.width = pg.canvas.width;
-      clonedCanvas.height = pg.canvas.height;
-      ctx.drawImage(pg.canvas, 0, 0);
-      if (pg.rotation) {
-        clonedCanvas.style.transform = 'rotate(' + pg.rotation + 'deg)';
-      }
-      card.appendChild(clonedCanvas);
+      // Append the original canvas directly (grid.innerHTML='' detaches it first)
+      pg.canvas.style.transform = pg.rotation ? 'rotate(' + pg.rotation + 'deg)' : '';
+      card.appendChild(pg.canvas);
 
       // Footer
       var footer = document.createElement('div');
@@ -236,7 +227,7 @@
     show('screen-saving');
 
     try {
-      var srcDoc = await PDFLib.PDFDocument.load(state.pdfBytes);
+      var srcDoc = await PDFLib.PDFDocument.load(state.pdfBytes, { ignoreEncryption: true });
       var newDoc = await PDFLib.PDFDocument.create();
 
       var activePages = state.pages.filter(function (p) { return !p.removed; });
@@ -266,21 +257,25 @@
       state.resultFilename = base + '-edited.pdf';
 
       // Auto-download
-      var blob = new Blob([state.resultBytes], { type: 'application/pdf' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = state.resultFilename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-
+      triggerDownload();
       showDone(activePages.length);
     } catch (err) {
       alert('Save failed: ' + err.message);
       show('screen-pages');
     }
+  }
+
+  function triggerDownload() {
+    if (!state.resultBytes) return;
+    var blob = new Blob([state.resultBytes], { type: 'application/pdf' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = state.resultFilename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
   }
 
   function showDone(pageCount) {
@@ -327,18 +322,7 @@
       fileInput.value = '';
       show('screen-drop');
     });
-    $('btn-download').addEventListener('click', function () {
-      if (!state.resultBytes) return;
-      var blob = new Blob([state.resultBytes], { type: 'application/pdf' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = state.resultFilename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
-    });
+    $('btn-download').addEventListener('click', triggerDownload);
   }
 
   init();

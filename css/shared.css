@@ -290,6 +290,19 @@ body {
   background: #253d5c;
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn:focus-visible,
+.tool-nav-card:focus-visible,
+.drop-zone:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
+}
+
 /* ── Done Screen ─────────────────────────────────────────────────────── */
 
 .done-icon {

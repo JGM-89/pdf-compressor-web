@@ -274,7 +274,7 @@
   }
 
   async function extractPages(pageNums) {
-    var srcDoc = await PDFLib.PDFDocument.load(state.pdfBytes);
+    var srcDoc = await PDFLib.PDFDocument.load(state.pdfBytes, { ignoreEncryption: true });
     var newDoc = await PDFLib.PDFDocument.create();
     // pdf-lib uses 0-based indices
     var indices = pageNums.map(function (n) { return n - 1; });

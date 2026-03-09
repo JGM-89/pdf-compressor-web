@@ -192,6 +192,10 @@
 
   async function doUnlock() {
     var password = $('unlock-password').value;
+    if (!password) {
+      alert('Please enter the PDF password.');
+      return;
+    }
 
     show('screen-processing');
     $('process-status').textContent = 'Decrypting PDF…';
@@ -237,9 +241,18 @@
 
         await page.render({ canvasContext: ctx, viewport: vp }).promise;
 
-        // Convert to JPEG and embed in new doc
-        var imgDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        var imgBytes = dataUrlToBytes(imgDataUrl);
+        // Convert to JPEG bytes efficiently via toBlob (avoids base64 overhead)
+        var imgBytes = await new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) {
+            if (!blob) { reject(new Error('Canvas conversion failed')); return; }
+            blob.arrayBuffer().then(function (buf) { resolve(new Uint8Array(buf)); });
+          }, 'image/jpeg', 0.92);
+        });
+
+        // Release canvas memory immediately
+        canvas.width = 0;
+        canvas.height = 0;
+
         var img = await newDoc.embedJpg(imgBytes);
 
         var newPage = newDoc.addPage([img.width / 2, img.height / 2]);
@@ -273,16 +286,6 @@
         showUnlockScreen();
       }
     }
-  }
-
-  function dataUrlToBytes(dataUrl) {
-    var base64 = dataUrl.split(',')[1];
-    var binary = atob(base64);
-    var bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
   }
 
   /* ── Done screen ────────────────────────────────────────────────── */
