@@ -33,3 +33,7 @@ Plain HTML/CSS/JS with no build tools or frameworks. Uses:
 ## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+## License
+
+[MIT](LICENSE)
