@@ -21,7 +21,10 @@ function estimateMetadataSize(analysis) {
  */
 function estimateImageCompressSize(analysis, quality, dpi) {
   var imageBytes = analysis.categories.image.size;
-  var nonImageBytes = Math.max(1024, analysis.totalSize - imageBytes);
+  // Subtract metadata + Photoshop data (stripped alongside image compression)
+  var removable = analysis.categories.metadata.size +
+                  (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
+  var nonImageBytes = Math.max(1024, analysis.totalSize - imageBytes - removable);
 
   var qScale = Math.pow(quality / 95, 0.6);
   var dpiScale = 1.0;

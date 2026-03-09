@@ -59,7 +59,32 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
     }
   }
 
-  onProgress(0.92, 'Saving (' + replaced + ' images compressed)\u2026');
+  // Also strip metadata and Photoshop data (same as lossless cleanup)
+  onProgress(0.92, 'Stripping metadata\u2026');
+
+  pdfDoc.setTitle('');
+  pdfDoc.setAuthor('');
+  pdfDoc.setSubject('');
+  pdfDoc.setKeywords([]);
+  pdfDoc.setProducer('');
+  pdfDoc.setCreator('');
+
+  var catalog = pdfDoc.catalog;
+  if (catalog.has(PDFName.of('Metadata'))) {
+    catalog.delete(PDFName.of('Metadata'));
+  }
+
+  // Remove Photoshop resource data streams
+  if (analysis.photoshopRefs && analysis.photoshopRefs.length > 0) {
+    onProgress(0.94, 'Removing Photoshop data\u2026');
+    for (var j = 0; j < analysis.photoshopRefs.length; j++) {
+      try {
+        pdfDoc.context.delete(analysis.photoshopRefs[j]);
+      } catch (e) { /* skip */ }
+    }
+  }
+
+  onProgress(0.96, 'Saving (' + replaced + ' images compressed)\u2026');
 
   var resultBytes = await pdfDoc.save();
 
