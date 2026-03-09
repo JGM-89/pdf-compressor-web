@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Password Protect &amp; Unlock PDF Free | PDF Compressor Web</title>
+  <meta name="description" content="Add or remove password protection from PDFs for free, entirely in your browser. No uploads, no servers, no tracking. Encrypt or decrypt PDF files instantly.">
+  <meta name="keywords" content="password protect PDF, encrypt PDF, unlock PDF, remove PDF password, decrypt PDF, browser-based, free, private">
+  <meta name="author" content="J.G.Moore">
+  <link rel="canonical" href="https://pdf-compressor.org/protect/">
+  <meta name="google-site-verification" content="_l8p6DGH7Twltw8IBA2SzMO2AJVJWGjIC_IGl6g3PjU" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Password Protect &amp; Unlock PDF Free">
+  <meta property="og:description" content="Add or remove password protection from PDFs for free, entirely in your browser.">
+  <meta property="og:url" content="https://pdf-compressor.org/protect/">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Password Protect &amp; Unlock PDF Free">
+  <meta name="twitter:description" content="Add or remove password protection from PDFs for free, entirely in your browser.">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Protect & Unlock PDF — PDF Compressor Web",
+    "url": "https://pdf-compressor.org/protect/",
+    "description": "Add or remove password protection from PDF files. All processing happens in your browser — your files never leave your device.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Any (browser-based)",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "author": { "@type": "Person", "name": "J.G.Moore", "url": "https://github.com/JGM-89" }
+  }
+  </script>
+
+  <link rel="stylesheet" href="../css/shared.css">
+  <link rel="stylesheet" href="../css/protect.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-accent"></div>
+    <div class="header-content">
+      <div class="header-left">
+        <a href="../" class="header-title">PDF Compressor <span class="header-version">Web</span></a>
+      </div>
+      <div class="header-right">
+        <a href="https://github.com/JGM-89/pdf-compressor-web" class="header-github" target="_blank" rel="noopener" title="View on GitHub">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/>
+          </svg>
+        </a>
+        <a href="https://github.com/JGM-89" class="header-byline" target="_blank" rel="noopener">by J.G.Moore</a>
+      </div>
+    </div>
+    <div class="header-divider"></div>
+  </header>
+
+  <!-- Privacy banner -->
+  <div class="privacy-banner">
+    <span class="privacy-icon">&#128274;</span>
+    <span>Your files never leave your device &mdash; all processing happens in the browser.</span>
+  </div>
+
+  <main class="content">
+
+    <!-- Screen 1: Drop Zone -->
+    <div id="screen-drop" class="screen active">
+      <h2 id="drop-title" class="screen-title">Add password to PDF</h2>
+      <p id="drop-subtitle" class="screen-subtitle">Protect a PDF with a password so only authorised users can open it.</p>
+
+      <!-- Mode toggle -->
+      <div class="protect-mode-row">
+        <button class="protect-mode-btn active" data-mode="lock">
+          <span class="protect-mode-icon">&#128274;</span>
+          Add password
+          <span class="protect-mode-desc">Encrypt a PDF</span>
+        </button>
+        <button class="protect-mode-btn" data-mode="unlock">
+          <span class="protect-mode-icon">&#128275;</span>
+          Remove password
+          <span class="protect-mode-desc">Decrypt a PDF</span>
+        </button>
+      </div>
+
+      <div id="drop-zone" class="drop-zone" tabindex="0">
+        <div class="drop-zone-inner">
+          <div class="drop-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+              <rect x="10" y="12" width="28" height="32" rx="3" stroke="currentColor" stroke-width="2" fill="none"/>
+              <circle cx="24" cy="12" r="8" stroke="var(--accent-blue)" stroke-width="2" fill="none"/>
+              <rect x="20" y="24" width="8" height="10" rx="2" fill="var(--accent-blue)" opacity="0.3"/>
+              <path d="M24 27v4" stroke="var(--accent-blue)" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <p id="drop-text" class="drop-text">Drop a PDF here or click to browse</p>
+          <p id="drop-hint" class="drop-hint">Select a PDF to add password protection</p>
+        </div>
+        <input type="file" id="file-input" accept=".pdf" hidden>
+      </div>
+    </div>
+
+    <!-- Screen 2: Lock (set password) -->
+    <div id="screen-lock" class="screen">
+      <h2 class="screen-title">Set a password</h2>
+      <p class="screen-subtitle">Choose a password to protect this PDF.</p>
+
+      <div class="file-info-card">
+        <div id="lock-file-name" class="file-info-name"></div>
+        <div id="lock-file-meta" class="file-info-meta"></div>
+      </div>
+
+      <div class="password-group">
+        <label class="password-label" for="password-field">Password</label>
+        <div class="password-input-wrap">
+          <input type="password" id="password-field" class="password-input" placeholder="Enter a password" autocomplete="new-password">
+          <button id="toggle-pw" class="password-toggle" type="button">&#128065;</button>
+        </div>
+        <div class="password-strength">
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+          <div class="strength-bar"></div>
+        </div>
+        <div id="strength-label" class="strength-label"></div>
+      </div>
+
+      <div class="password-group">
+        <label class="password-label" for="confirm-field">Confirm password</label>
+        <div class="password-input-wrap">
+          <input type="password" id="confirm-field" class="password-input" placeholder="Re-enter password" autocomplete="new-password">
+          <button id="toggle-confirm" class="password-toggle" type="button">&#128065;</button>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="btn-back-lock" class="btn btn-secondary">&larr; Back</button>
+        <button id="btn-lock" class="btn btn-primary" disabled>Enter a password</button>
+      </div>
+    </div>
+
+    <!-- Screen 3: Unlock (enter password) -->
+    <div id="screen-unlock" class="screen">
+      <h2 class="screen-title">Enter password</h2>
+      <p class="screen-subtitle">Enter the password to unlock this PDF.</p>
+
+      <div class="file-info-card">
+        <div id="unlock-file-name" class="file-info-name"></div>
+        <div id="unlock-file-meta" class="file-info-meta"></div>
+      </div>
+
+      <div class="unlock-notice">
+        <span class="unlock-notice-icon">&#9888;&#65039;</span>
+        The unlocked PDF will be rebuilt as images to remove encryption. Text will no longer be selectable in the output.
+      </div>
+
+      <div class="password-group">
+        <label class="password-label" for="unlock-password">PDF password</label>
+        <div class="password-input-wrap">
+          <input type="password" id="unlock-password" class="password-input" placeholder="Enter the PDF password">
+          <button id="toggle-unlock-pw" class="password-toggle" type="button">&#128065;</button>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="btn-back-unlock" class="btn btn-secondary">&larr; Back</button>
+        <button id="btn-unlock" class="btn btn-primary">&#128275; Unlock PDF</button>
+      </div>
+    </div>
+
+    <!-- Screen 4: Processing -->
+    <div id="screen-processing" class="screen">
+      <h2 class="screen-title">Processing&hellip;</h2>
+      <p id="process-status" class="screen-subtitle">Working&hellip;</p>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div id="process-progress-fill" class="progress-fill"></div>
+        </div>
+        <span id="process-percent" class="progress-percent">0%</span>
+      </div>
+    </div>
+
+    <!-- Screen 5: Done -->
+    <div id="screen-done" class="screen">
+      <div class="done-icon">&#10003;</div>
+      <h2 id="done-action" class="done-title">Done!</h2>
+      <p id="done-filename" class="done-filename"></p>
+
+      <div class="done-card">
+        <div class="done-row">
+          <span class="done-label">Original size</span>
+          <span id="done-original-size" class="done-value done-value-highlight"></span>
+        </div>
+        <div class="done-row">
+          <span class="done-label">Output size</span>
+          <span id="done-output-size" class="done-value done-value-success"></span>
+        </div>
+      </div>
+
+      <p id="done-note" class="screen-subtitle" style="display:none;margin-top:12px;font-size:12px;"></p>
+
+      <div class="action-row">
+        <button id="btn-download" class="btn btn-primary">&#8615; Download</button>
+        <button id="btn-another" class="btn btn-secondary">Another PDF &rarr;</button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Marketing sections -->
+  <div class="marketing">
+
+    <section class="marketing-section" style="margin-top: 32px;">
+      <h2 class="marketing-heading">More PDF Tools</h2>
+      <div class="tool-nav-grid">
+        <a href="../" class="tool-nav-card">
+          <span class="tool-nav-icon">&#128230;</span> Compress
+        </a>
+        <a href="../merge/" class="tool-nav-card">
+          <span class="tool-nav-icon">&#128195;</span> Merge
+        </a>
+        <a href="../split/" class="tool-nav-card">
+          <span class="tool-nav-icon">&#9986;</span> Split
+        </a>
+        <a href="../pages/" class="tool-nav-card">
+          <span class="tool-nav-icon">&#128260;</span> Pages
+        </a>
+        <a href="../protect/" class="tool-nav-card active">
+          <span class="tool-nav-icon">&#128274;</span> Protect
+        </a>
+      </div>
+    </section>
+
+    <section class="marketing-section">
+      <h2 class="marketing-heading">Why Protect with PDF Compressor Web?</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#128274;</div>
+          <h3 class="feature-title">100% Private</h3>
+          <p class="feature-desc">Your files and passwords never leave your device. Encryption happens entirely in the browser.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128272;</div>
+          <h3 class="feature-title">Lock &amp; Unlock</h3>
+          <p class="feature-desc">Add password protection to any PDF, or remove a password from an encrypted file you already have access to.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#9889;</div>
+          <h3 class="feature-title">Instant Processing</h3>
+          <p class="feature-desc">Encrypt or decrypt PDFs in seconds with a real-time progress bar. No waiting for server processing.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128736;&#65039;</div>
+          <h3 class="feature-title">Free &amp; Open Source</h3>
+          <p class="feature-desc">No sign-ups, no limits, no ads. Protect as many files as you need, completely free.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="marketing-section">
+      <h2 class="marketing-heading">How It Works</h2>
+      <div class="steps-row">
+        <div class="step-card">
+          <div class="step-number">1</div>
+          <h3 class="step-title">Choose mode</h3>
+          <p class="step-desc">Select whether you want to add or remove a password.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-card">
+          <div class="step-number">2</div>
+          <h3 class="step-title">Drop your PDF</h3>
+          <p class="step-desc">Drag and drop or click to select your PDF file.</p>
+        </div>
+        <div class="step-connector"></div>
+        <div class="step-card">
+          <div class="step-number">3</div>
+          <h3 class="step-title">Download</h3>
+          <p class="step-desc">Your protected or unlocked PDF downloads automatically.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="marketing-section marketing-section-support">
+      <p class="support-text">
+        Find this tool useful?
+        <a href="https://ko-fi.com/jgmoore" class="kofi-link" target="_blank" rel="noopener">&#9749; Buy me a coffee on Ko-fi</a>
+      </p>
+    </section>
+
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p class="footer-disclaimer">
+      This tool is provided as-is with no warranty. Always keep a backup of your files.
+      No data is collected, stored, or transmitted; all processing happens entirely in your browser.
+    </p>
+    <p class="footer-links">
+      <a href="https://github.com/JGM-89/pdf-compressor-web" target="_blank" rel="noopener">GitHub</a>
+      <span class="footer-sep">&middot;</span>
+      <a href="https://github.com/JGM-89/pdf-compressor-web/issues" target="_blank" rel="noopener">Report a bug</a>
+      <span class="footer-sep">&middot;</span>
+      <a href="https://ko-fi.com/jgmoore" target="_blank" rel="noopener">&#9749; Ko-fi</a>
+    </p>
+    <p class="footer-byline">Made by <a href="https://github.com/JGM-89" target="_blank" rel="noopener">J.G.Moore</a></p>
+  </footer>
+
+  <!-- CDN Libraries: encryption-capable fork for lock, pdf.js for unlock -->
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib-with-encrypt@1.2.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- App Scripts -->
+  <script src="../js/utils.js"></script>
+  <script src="../js/protect/app.js"></script>
+</body>
+</html>

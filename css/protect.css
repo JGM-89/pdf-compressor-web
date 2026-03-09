@@ -1,0 +1,178 @@
+/* ── Protect Tool Styles ──────────────────────────────────────────────── */
+
+/* Mode toggle */
+.protect-mode-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.protect-mode-btn {
+  flex: 1;
+  padding: 14px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.protect-mode-btn:hover {
+  border-color: var(--accent-blue);
+  background: #0d2240;
+}
+
+.protect-mode-btn.active {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+}
+
+.protect-mode-icon {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.protect-mode-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 400;
+  display: block;
+  margin-top: 4px;
+}
+
+/* Password input group */
+.password-group {
+  margin-bottom: 16px;
+}
+
+.password-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input {
+  width: 100%;
+  padding: 10px 40px 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.password-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.password-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  line-height: 1;
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+}
+
+.password-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  opacity: 0.7;
+}
+
+/* Password strength indicator */
+.password-strength {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.strength-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border-color);
+  transition: background 0.3s;
+}
+
+.strength-bar.weak { background: #ef4444; }
+.strength-bar.medium { background: var(--warning-amber); }
+.strength-bar.strong { background: var(--success-green); }
+
+.strength-label {
+  font-size: 11px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+
+.strength-label.weak { color: #ef4444; }
+.strength-label.medium { color: var(--warning-amber); }
+.strength-label.strong { color: var(--success-green); }
+
+/* File info card */
+.file-info-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.file-info-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+.file-info-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Unlock notice */
+.unlock-notice {
+  background: var(--bg-card);
+  border: 1px solid var(--warning-amber);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.unlock-notice-icon {
+  color: var(--warning-amber);
+  margin-right: 6px;
+}
