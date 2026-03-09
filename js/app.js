@@ -657,6 +657,12 @@
       showScreen('drop');
     });
 
+    // Logo / title → home
+    $('#home-link').addEventListener('click', function() {
+      resetState();
+      showScreen('drop');
+    });
+
     // View compression log button
     $('#btn-view-log').addEventListener('click', function() {
       if (typeof _compressLog !== 'undefined' && _compressLog.length > 0) {
