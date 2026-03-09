@@ -22,18 +22,21 @@ A free, private PDF toolkit that runs entirely in your browser. Compress, merge,
 | **Compress Images** | Re-encodes embedded images at lower JPEG quality and optional DPI reduction | Minimal at default settings |
 | **Flatten to Images** | Renders each page as a JPEG image and rebuilds the PDF | Text becomes non-selectable |
 
-## Privacy
+## Privacy & Security
 
 Everything runs 100% client-side using JavaScript. No server, no uploads, no tracking. Your PDFs are processed entirely in your browser's memory and never transmitted anywhere.
+
+All third-party libraries are loaded from CDNs with [Subresource Integrity (SRI)](https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity) hashes, so your browser will block execution if any file has been tampered with.
 
 ## Tech
 
 Plain HTML/CSS/JS with no build tools or frameworks. Installable as a PWA for offline use.
 
-- [pdf-lib](https://pdf-lib.js.org/) — PDF parsing, manipulation, and saving
-- [pdf.js](https://mozilla.github.io/pdf.js/) — Page rendering and thumbnail generation
-- [pdf-lib-with-encrypt](https://www.npmjs.com/package/pdf-lib-with-encrypt) — PDF encryption (protect tool only)
-- Canvas API — Image re-encoding and DPI downsampling
+| Library | License | Used for |
+|---------|---------|----------|
+| [pdf-lib](https://pdf-lib.js.org/) v1.17.1 | MIT | PDF parsing, manipulation, and saving |
+| [pdf.js](https://mozilla.github.io/pdf.js/) v3.11.174 | Apache 2.0 | Page rendering and thumbnail generation |
+| [pdf-lib-with-encrypt](https://www.npmjs.com/package/pdf-lib-with-encrypt) v1.2.1 | MIT | PDF encryption (protect tool only) |
 
 ## Changelog
 
