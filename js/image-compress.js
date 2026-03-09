@@ -212,18 +212,15 @@ function paeth(a, b, c) {
 }
 
 /**
- * Compress a Uint8Array using the Compression Streams API (zlib/deflate).
- * Returns null if CompressionStream is not available.
+ * Pipe a Uint8Array through a web stream transform and collect output.
+ * Used by both deflateBytes and inflateBytes.
  */
-async function deflateBytes(input) {
-  if (typeof CompressionStream === 'undefined') return null;
-
-  var cs = new CompressionStream('deflate');
-  var writer = cs.writable.getWriter();
+async function pipeStream(input, transformStream) {
+  var writer = transformStream.writable.getWriter();
   writer.write(input);
   writer.close();
 
-  var reader = cs.readable.getReader();
+  var reader = transformStream.readable.getReader();
   var chunks = [];
   while (true) {
     var result = await reader.read();
@@ -240,6 +237,36 @@ async function deflateBytes(input) {
     offset += chunks[i].length;
   }
   return output;
+}
+
+/**
+ * Compress a Uint8Array using the native Compression Streams API (zlib).
+ * Returns null if CompressionStream is not available.
+ */
+async function deflateBytes(input) {
+  if (typeof CompressionStream === 'undefined') return null;
+  return pipeStream(input, new CompressionStream('deflate'));
+}
+
+/**
+ * Decompress a zlib/Flate-encoded Uint8Array using the native Decompression Streams API.
+ * Tries zlib format first, then raw deflate as fallback.
+ * Returns null if DecompressionStream is not available.
+ */
+async function inflateBytes(input) {
+  if (typeof DecompressionStream === 'undefined') return null;
+
+  // Try zlib format (most common in PDF FlateDecode)
+  try {
+    return await pipeStream(input, new DecompressionStream('deflate'));
+  } catch (e) { /* not zlib, try raw */ }
+
+  // Fallback: try raw deflate (some PDFs use this)
+  try {
+    return await pipeStream(input, new DecompressionStream('deflate-raw'));
+  } catch (e) { /* both failed */ }
+
+  return null;
 }
 
 /**
@@ -306,19 +333,34 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI) {
     bitmap.close();
   } else {
     // FlateDecode or unfiltered: decode the raw stream bytes
-    var rawBytes;
-    try {
-      var decoded = PDFLib.decodePDFRawStream(obj);
-      rawBytes = decoded.decode();
-      if (!(rawBytes instanceof Uint8Array)) {
-        rawBytes = new Uint8Array(rawBytes);
-      }
-    } catch (e) {
-      console.warn('decodePDFRawStream failed:', e.message || e);
-      return false;
+    // Use native DecompressionStream as primary decoder (more reliable than pdf-lib
+    // for streams with non-standard zlib params or DecodeParms with Predictor).
+    var rawBytes = null;
+
+    if (imgInfo.filter === 'FlateDecode') {
+      // Try native inflate first
+      rawBytes = await inflateBytes(obj.contents);
     }
 
-    // Check for DecodeParms with Predictor (pdf-lib doesn't handle these)
+    if (!rawBytes) {
+      // Fallback: pdf-lib's decoder
+      try {
+        var decoded = PDFLib.decodePDFRawStream(obj);
+        rawBytes = decoded.decode();
+        if (!(rawBytes instanceof Uint8Array)) {
+          rawBytes = new Uint8Array(rawBytes);
+        }
+      } catch (e) {
+        console.warn('All decoders failed for image:', e.message || e);
+        return false;
+      }
+    }
+
+    if (!(rawBytes instanceof Uint8Array)) {
+      rawBytes = new Uint8Array(rawBytes);
+    }
+
+    // Handle DecodeParms with Predictor (pdf-lib and native inflate don't undo these)
     var dp = readDecodeParms(obj.dict, pdfDoc.context);
     if (dp && dp.predictor > 1) {
       var components = dp.colors;
