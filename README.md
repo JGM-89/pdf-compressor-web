@@ -18,8 +18,8 @@ A free, private PDF toolkit that runs entirely in your browser. Compress, merge,
 
 | Mode | What it does | Quality impact |
 |------|-------------|----------------|
-| **Lossless Cleanup** | Strips metadata (author, title, timestamps, XMP) | None  - visually identical |
-| **Compress Images** | Re-encodes embedded images at lower JPEG quality and optional DPI reduction | Minimal at default settings |
+| **Lossless Cleanup** | Strips metadata, XMP, and Photoshop bloat (8BIM resource blocks) | None - visually identical |
+| **Compress Images** | Re-encodes images at lower JPEG quality and DPI. Handles FlateDecode, TIFF/PNG Predictors, grayscale optimisation, and Photoshop composite stubbing. | Minimal at default settings |
 | **Flatten to Images** | Renders each page as a JPEG image and rebuilds the PDF | Text becomes non-selectable |
 
 ## Privacy & Security
