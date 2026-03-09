@@ -2,7 +2,7 @@
 
 A free, browser-based PDF compressor. All processing happens locally in your browser — your files never leave your machine.
 
-**[Try it live](https://jgm-89.github.io/pdf-compressor-web/)**
+**[Try it live](https://pdf-compressor.org/)**
 
 ## Features
 
