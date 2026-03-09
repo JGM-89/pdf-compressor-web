@@ -1,15 +1,18 @@
 # PDF Compressor Web
 
-A free, browser-based PDF compressor. All processing happens locally in your browser — your files never leave your machine.
+A free, private PDF toolkit that runs entirely in your browser. Compress, merge, split, manage pages, and password-protect PDFs — no uploads, no servers, no tracking.
 
-**[Try it live](https://pdf-compressor.org/)**
+**[Try it live at pdf-compressor.org](https://pdf-compressor.org/)**
 
-## Features
+## Tools
 
-- **Drag-and-drop** — drop a PDF or click to browse
-- **Instant analysis** — breaks down file composition (images, fonts, vectors, metadata)
-- **Smart recommendations** — suggests the best compression mode for your file
-- **Real-time size estimates** — see estimated output size as you adjust settings
+| Tool | URL | What it does |
+|------|-----|-------------|
+| **Compress** | [/](https://pdf-compressor.org/) | Reduce PDF file size with three compression modes |
+| **Merge** | [/merge/](https://pdf-compressor.org/merge/) | Combine multiple PDFs into one, with drag-to-reorder |
+| **Split** | [/split/](https://pdf-compressor.org/split/) | Extract pages by range, split every N pages, or pick individual pages |
+| **Pages** | [/pages/](https://pdf-compressor.org/pages/) | Rotate, reorder, and remove pages with a visual thumbnail grid |
+| **Protect** | [/protect/](https://pdf-compressor.org/protect/) | Add or remove password protection |
 
 ## Compression Modes
 
@@ -25,9 +28,11 @@ Everything runs 100% client-side using JavaScript. No server, no uploads, no tra
 
 ## Tech
 
-Plain HTML/CSS/JS with no build tools or frameworks. Uses:
+Plain HTML/CSS/JS with no build tools or frameworks. Installable as a PWA for offline use.
+
 - [pdf-lib](https://pdf-lib.js.org/) — PDF parsing, manipulation, and saving
-- [pdf.js](https://mozilla.github.io/pdf.js/) — Page rendering for flatten mode
+- [pdf.js](https://mozilla.github.io/pdf.js/) — Page rendering and thumbnail generation
+- [pdf-lib-with-encrypt](https://www.npmjs.com/package/pdf-lib-with-encrypt) — PDF encryption (protect tool only)
 - Canvas API — Image re-encoding and DPI downsampling
 
 ## Changelog
