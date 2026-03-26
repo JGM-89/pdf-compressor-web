@@ -362,6 +362,62 @@ async function inflateBytes(input) {
 }
 
 /**
+ * Parse a JPEG's SOF marker to get the number of colour components.
+ * Returns 1 (gray), 3 (YCbCr/RGB), or 4 (CMYK/YCCK).
+ */
+function getJpegComponentCount(data) {
+  // Scan for any SOF marker (FFC0–FFCF, excluding FFC4 DHT and FFC8 JPG)
+  for (var i = 0; i < data.length - 10; i++) {
+    if (data[i] === 0xFF) {
+      var m = data[i + 1];
+      if (m >= 0xC0 && m <= 0xCF && m !== 0xC4 && m !== 0xC8) {
+        // SOF found — byte 9 (offset i+9) is Nf (number of components)
+        return data[i + 9];
+      }
+      // Skip over marker segment (length field at i+2)
+      if (m !== 0x00 && m !== 0xFF && m !== 0xD0 && m !== 0xD8 && m !== 0xD9
+          && !(m >= 0xD0 && m <= 0xD7)) {
+        var segLen = (data[i + 2] << 8) | data[i + 3];
+        i += 1 + segLen; // skip segment (loop will add 1 more)
+      }
+    }
+  }
+  return 3; // default
+}
+
+/**
+ * Convert CMYK pixel data (stored as RGBA by the browser) to proper RGB.
+ * Handles both standard CMYK (0=no ink) and inverted/Adobe CMYK (255=no ink).
+ * Modifies the ImageData in-place and sets alpha to 255.
+ */
+function cmykPixelsToRGB(imageData) {
+  var px = imageData.data;
+
+  // Heuristic: sample corners and centre to decide if values are inverted.
+  // In standard CMYK, white = (0,0,0,0).  In inverted (Adobe), white = (255,255,255,255).
+  // A typical document page is mostly white, so check the average of the K channel.
+  var kSum = 0, samples = 0;
+  var step = Math.max(4, Math.floor(px.length / 4000) * 4);
+  for (var s = 3; s < px.length; s += step) { kSum += px[s]; samples++; }
+  var kAvg = kSum / samples;
+  // If K averages high (>128), values are likely inverted (Adobe convention)
+  var inverted = kAvg > 128;
+
+  for (var i = 0; i < px.length; i += 4) {
+    var c = px[i], m = px[i + 1], y = px[i + 2], k = px[i + 3];
+    if (inverted) {
+      // Inverted Adobe CMYK: 255 = no ink → convert to standard first
+      c = 255 - c; m = 255 - m; y = 255 - y; k = 255 - k;
+    }
+    // Standard CMYK to RGB:  R = (1-C)(1-K)*255
+    px[i]     = ((255 - c) * (255 - k) + 127) / 255 | 0; // R
+    px[i + 1] = ((255 - m) * (255 - k) + 127) / 255 | 0; // G
+    px[i + 2] = ((255 - y) * (255 - k) + 127) / 255 | 0; // B
+    px[i + 3] = 255; // opaque
+  }
+}
+
+/**
  * Check if pixel data is degenerate (all one colour — blank canvas).
  * Returns true if all sampled pixels share the same RGB value (within tolerance).
  */
@@ -439,8 +495,9 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
   var ctx;
 
   if (imgInfo.isJpeg || imgInfo.filter === 'DCTDecode') {
-    // JPEG: raw bytes ARE the JPEG file - decode via browser
-    log.push('  JPEG path: createImageBitmap...');
+    // JPEG: raw bytes ARE the JPEG file — decode via browser
+    var jpegComponents = getJpegComponentCount(obj.contents);
+    log.push('  JPEG path: components=' + jpegComponents + ' createImageBitmap...');
     var blob = new Blob([obj.contents], { type: 'image/jpeg' });
     var bitmap = await createImageBitmap(blob);
     width = bitmap.width;
@@ -456,6 +513,24 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
     var spot = ctx.getImageData(Math.floor(width / 2), Math.floor(height / 2), 1, 1).data;
     log.push('  JPEG decoded: ' + width + 'x' + height +
       ' midPixel=rgba(' + spot[0] + ',' + spot[1] + ',' + spot[2] + ',' + spot[3] + ')');
+
+    // CMYK JPEG fix: browser puts K channel in alpha, making pixels transparent.
+    // Detect this and convert CMYK→RGB manually.
+    if (spot[3] === 0 && jpegComponents === 4) {
+      log.push('  CMYK JPEG detected — converting CMYK→RGB');
+      var cmykData = ctx.getImageData(0, 0, width, height);
+      cmykPixelsToRGB(cmykData);
+      ctx.putImageData(cmykData, 0, 0);
+
+      spot = ctx.getImageData(Math.floor(width / 2), Math.floor(height / 2), 1, 1).data;
+      log.push('  after CMYK fix: midPixel=rgba(' + spot[0] + ',' + spot[1] + ',' + spot[2] + ',' + spot[3] + ')');
+    } else if (spot[3] === 0) {
+      // 3-component JPEG but still transparent — force alpha to 255 as last resort
+      log.push('  transparent 3-ch JPEG — forcing alpha to 255');
+      var fixData = ctx.getImageData(0, 0, width, height);
+      for (var ap = 3; ap < fixData.data.length; ap += 4) fixData.data[ap] = 255;
+      ctx.putImageData(fixData, 0, 0);
+    }
   } else {
     // FlateDecode or unfiltered: decode the raw stream bytes
     var rawBytes = null;
