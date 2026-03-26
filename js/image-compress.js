@@ -362,6 +362,25 @@ async function inflateBytes(input) {
 }
 
 /**
+ * Check if pixel data is degenerate (all one colour — blank canvas).
+ * Returns true if all sampled pixels share the same RGB value (within tolerance).
+ */
+function isDegeneratePixels(pixels) {
+  var pixelCount = pixels.length / 4;
+  if (pixelCount === 0) return true;
+  var step = Math.max(1, Math.floor(pixelCount / 2000));
+  var r0 = pixels[0], g0 = pixels[1], b0 = pixels[2];
+  for (var i = 4 * step; i < pixels.length; i += 4 * step) {
+    if (Math.abs(pixels[i] - r0) > 3 ||
+        Math.abs(pixels[i + 1] - g0) > 3 ||
+        Math.abs(pixels[i + 2] - b0) > 3) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Check if canvas pixel data is effectively grayscale (R ≈ G ≈ B).
  * Samples up to 1000 pixels for speed.
  */
@@ -401,25 +420,8 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
   var PDFRawStream = PDFLib.PDFRawStream;
   var log = _compressLog;
 
-  // Photoshop composite images (/Matte + /SMask) are redundant when
-  // the PDF has separate layer masks. Replace with a 1×1 white stub.
-  if (imgInfo.hasMatte && analysis && analysis.photoshopRefs && analysis.photoshopRefs.length > 0) {
-    log.push('  Photoshop composite (has /Matte) \u2192 replacing with 1\u00d71 stub');
-    var stubBytes = new Uint8Array([255, 255, 255]);
-    var stubDict = pdfDoc.context.obj({});
-    stubDict.set(PDFName.of('Type'), PDFName.of('XObject'));
-    stubDict.set(PDFName.of('Subtype'), PDFName.of('Image'));
-    stubDict.set(PDFName.of('Width'), pdfDoc.context.obj(1));
-    stubDict.set(PDFName.of('Height'), pdfDoc.context.obj(1));
-    stubDict.set(PDFName.of('ColorSpace'), PDFName.of('DeviceRGB'));
-    stubDict.set(PDFName.of('BitsPerComponent'), pdfDoc.context.obj(8));
-    stubDict.set(PDFName.of('Length'), pdfDoc.context.obj(3));
-    // No Filter, no SMask, no Matte — clean stub
-    var stubStream = new PDFRawStream(stubDict, stubBytes);
-    pdfDoc.context.assign(imgInfo.ref, stubStream);
-    log.push('  Saved ' + imgInfo.rawSize + 'b \u2192 3b');
-    return true;
-  }
+  // /Matte indicates pre-multiplied alpha — the image itself IS the
+  // visible content.  Process it normally (do NOT replace with a stub).
 
   var obj = pdfDoc.context.lookup(imgInfo.ref);
   if (!obj) { log.push('  lookup(' + imgInfo.ref + ') returned null'); return false; }
@@ -449,7 +451,11 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
     ctx = canvas.getContext('2d');
     ctx.drawImage(bitmap, 0, 0);
     bitmap.close();
-    log.push('  JPEG decoded: ' + width + 'x' + height);
+
+    // Spot-check: verify draw actually produced pixels
+    var spot = ctx.getImageData(Math.floor(width / 2), Math.floor(height / 2), 1, 1).data;
+    log.push('  JPEG decoded: ' + width + 'x' + height +
+      ' midPixel=rgba(' + spot[0] + ',' + spot[1] + ',' + spot[2] + ',' + spot[3] + ')');
   } else {
     // FlateDecode or unfiltered: decode the raw stream bytes
     var rawBytes = null;
@@ -545,9 +551,17 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
     outCtx.drawImage(canvas, 0, 0, outWidth, outHeight);
   }
 
-  // Step 4: Check if image is grayscale and try Flate-gray path
+  // Step 4: Validate canvas has actual content (not blank)
   var outCtx2 = outputCanvas.getContext('2d');
   var outPixels = outCtx2.getImageData(0, 0, outWidth, outHeight);
+
+  if (isDegeneratePixels(outPixels.data)) {
+    log.push('  SKIPPED: canvas is blank/uniform (decode produced no visible content)');
+    cleanupCanvases(canvas, outputCanvas);
+    return false;
+  }
+
+  // Step 5: Check if image is grayscale and try Flate-gray path
   var isGray = isGrayscalePixels(outPixels.data);
   log.push('  grayscale: ' + isGray);
 
