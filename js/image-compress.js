@@ -495,41 +495,66 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
   var ctx;
 
   if (imgInfo.isJpeg || imgInfo.filter === 'DCTDecode') {
-    // JPEG: raw bytes ARE the JPEG file — decode via browser
-    var jpegComponents = getJpegComponentCount(obj.contents);
-    log.push('  JPEG path: components=' + jpegComponents + ' createImageBitmap...');
-    var blob = new Blob([obj.contents], { type: 'image/jpeg' });
-    var bitmap = await createImageBitmap(blob);
-    width = bitmap.width;
-    height = bitmap.height;
+    // JPEG: decode via <img> element (more robust than createImageBitmap
+    // for Photoshop-generated JPEGs with Adobe APP14 markers).
+    // Copy bytes to a fresh buffer to avoid ArrayBuffer view issues.
+    var jpegCopy = new Uint8Array(obj.contents.length);
+    jpegCopy.set(obj.contents);
+    var blob = new Blob([jpegCopy], { type: 'image/jpeg' });
+    var url = URL.createObjectURL(blob);
+    log.push('  JPEG path: <img> decode...');
 
-    canvas.width = width;
-    canvas.height = height;
-    ctx = canvas.getContext('2d');
-    ctx.drawImage(bitmap, 0, 0);
-    bitmap.close();
+    try {
+      var img = document.createElement('img');
+      await new Promise(function(resolve, reject) {
+        img.onload = resolve;
+        img.onerror = function() { reject(new Error('img decode failed')); };
+        img.src = url;
+      });
+      width = img.naturalWidth;
+      height = img.naturalHeight;
 
-    // Spot-check: verify draw actually produced pixels
+      canvas.width = width;
+      canvas.height = height;
+      ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+
+    // Spot-check: verify decode produced opaque pixels
     var spot = ctx.getImageData(Math.floor(width / 2), Math.floor(height / 2), 1, 1).data;
-    log.push('  JPEG decoded: ' + width + 'x' + height +
+    log.push('  img decoded: ' + width + 'x' + height +
       ' midPixel=rgba(' + spot[0] + ',' + spot[1] + ',' + spot[2] + ',' + spot[3] + ')');
 
-    // CMYK JPEG fix: browser puts K channel in alpha, making pixels transparent.
-    // Detect this and convert CMYK→RGB manually.
-    if (spot[3] === 0 && jpegComponents === 4) {
-      log.push('  CMYK JPEG detected — converting CMYK→RGB');
-      var cmykData = ctx.getImageData(0, 0, width, height);
-      cmykPixelsToRGB(cmykData);
-      ctx.putImageData(cmykData, 0, 0);
+    // If <img> also produces transparent pixels, try createImageBitmap as fallback
+    if (spot[3] === 0) {
+      log.push('  <img> transparent — trying createImageBitmap fallback...');
+      var blob2 = new Blob([jpegCopy], { type: 'image/jpeg' });
+      var bitmap = await createImageBitmap(blob2);
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      width = canvas.width;
+      height = canvas.height;
 
       spot = ctx.getImageData(Math.floor(width / 2), Math.floor(height / 2), 1, 1).data;
-      log.push('  after CMYK fix: midPixel=rgba(' + spot[0] + ',' + spot[1] + ',' + spot[2] + ',' + spot[3] + ')');
-    } else if (spot[3] === 0) {
-      // 3-component JPEG but still transparent — force alpha to 255 as last resort
-      log.push('  transparent 3-ch JPEG — forcing alpha to 255');
-      var fixData = ctx.getImageData(0, 0, width, height);
-      for (var ap = 3; ap < fixData.data.length; ap += 4) fixData.data[ap] = 255;
-      ctx.putImageData(fixData, 0, 0);
+      log.push('  bitmap decoded: midPixel=rgba(' + spot[0] + ',' + spot[1] + ',' + spot[2] + ',' + spot[3] + ')');
+
+      // If STILL transparent and 4-component JPEG, try CMYK→RGB conversion
+      if (spot[3] === 0) {
+        var nComp = getJpegComponentCount(jpegCopy);
+        if (nComp === 4) {
+          log.push('  4-ch JPEG — converting CMYK→RGB');
+          var cmykData = ctx.getImageData(0, 0, width, height);
+          cmykPixelsToRGB(cmykData);
+          ctx.putImageData(cmykData, 0, 0);
+        } else {
+          log.push('  JPEG decode failed: all pixels transparent (components=' + nComp + ')');
+        }
+      }
     }
   } else {
     // FlateDecode or unfiltered: decode the raw stream bytes
