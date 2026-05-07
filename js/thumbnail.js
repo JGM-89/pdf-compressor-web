@@ -1,5 +1,6 @@
 /* ── Shared PDF Thumbnail Renderer ──────────────────────────────────── */
 /* Uses pdf.js to render page thumbnails on canvas elements              */
+/* global Utils */
 
 var PDFThumbnails = (function () {
   'use strict';
@@ -38,11 +39,7 @@ var PDFThumbnails = (function () {
   async function renderAll(pdfBytes, maxSize, onProgress) {
     maxSize = maxSize || 160;
 
-    // Ensure pdf.js worker is set
-    if (typeof pdfjsLib !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
+    var pdfjsLib = await Utils.ensurePDFJS();
 
     // Copy bytes so pdf.js worker doesn't detach the caller's buffer
     var loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes).slice() });

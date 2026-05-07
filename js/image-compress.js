@@ -53,6 +53,18 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
       _compressLog.push('SKIP ' + img.ref + ': too small (' + img.width + 'x' + img.height + ')');
       return false;
     }
+    if (img.isMask) {
+      _compressLog.push('SKIP ' + img.ref + ': image mask');
+      return false;
+    }
+    if (img.hasSMask || img.hasMask || img.hasDecode) {
+      _compressLog.push('SKIP ' + img.ref + ': transparency/mask/decode fields require preservation');
+      return false;
+    }
+    if (hasRiskyImageDictionary(pdfDoc, img)) {
+      _compressLog.push('SKIP ' + img.ref + ': risky image dictionary fields');
+      return false;
+    }
     if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') {
       _compressLog.push('SKIP ' + img.ref + ': unsupported filter "' + img.filter + '"');
       return false;
@@ -144,6 +156,30 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
+
+function hasRiskyImageDictionary(pdfDoc, imgInfo) {
+  var PDFName = PDFLib.PDFName;
+  try {
+    var obj = pdfDoc.context.lookup(imgInfo.ref);
+    if (!obj || !obj.dict || !obj.dict.get) return true;
+
+    if (obj.dict.get(PDFName.of('SMask')) ||
+        obj.dict.get(PDFName.of('Mask')) ||
+        obj.dict.get(PDFName.of('ImageMask')) ||
+        obj.dict.get(PDFName.of('Decode'))) {
+      return true;
+    }
+
+    var filter = obj.dict.get(PDFName.of('Filter'));
+    filter = resolveVal(filter, pdfDoc.context);
+    if (filter && typeof filter.size === 'function' && filter.size() > 1) {
+      return true;
+    }
+  } catch (e) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Resolve a pdf-lib dictionary value, following indirect references.

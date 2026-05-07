@@ -49,3 +49,17 @@ function estimateFlattenSize(analysis, quality, dpi) {
   var qScale = Math.pow(quality / 75, 0.6);
   return Math.round(pages * basePerPage * dpiScale * qScale);
 }
+
+/**
+ * Conservative estimate for qpdf WASM structural optimization.
+ * This varies heavily by PDF; final output is checked before auto-download.
+ */
+function estimateWasmOptimizerSize(analysis) {
+  var structuralBytes = analysis.categories.other.size +
+    analysis.categories.vector.size +
+    analysis.categories.font.size +
+    analysis.categories.metadata.size +
+    (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
+  var likelySavings = Math.min(analysis.totalSize * 0.12, structuralBytes * 0.25);
+  return Math.max(1024, Math.round(analysis.totalSize - likelySavings));
+}

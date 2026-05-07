@@ -96,6 +96,13 @@
       return;
     }
 
+    if (!Utils.confirmFilesWithinLimit(validFiles, {
+      label: validFiles.length + ' selected PDF files',
+      limitBytes: Utils.PDF_FILE_LIMITS.mergeMaxTotalBytes
+    })) {
+      return;
+    }
+
     // Read each file
     var pending = validFiles.length;
     for (var i = 0; i < validFiles.length; i++) {

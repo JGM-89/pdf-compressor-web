@@ -3,7 +3,7 @@
  * Renders each page as a JPEG using pdf.js, then rebuilds the PDF with pdf-lib.
  */
 
-/* global PDFLib, yieldToUI, canvasToJpegBytes */
+/* global PDFLib, Utils, yieldToUI, canvasToJpegBytes */
 
 /**
  * Flatten a PDF by rendering every page as a JPEG image.
@@ -15,7 +15,7 @@
  * @returns {Promise<Uint8Array>} New PDF bytes
  */
 async function compressFlatten(pdfBytes, analysis, quality, dpi, onProgress) {
-  var pdfjsLib = window['pdfjs-dist/build/pdf'];
+  var pdfjsLib = await Utils.ensurePDFJS();
   var PDFDocument = PDFLib.PDFDocument;
 
   onProgress(0.02, 'Loading PDF for rendering\u2026');

@@ -4,19 +4,13 @@
  * coordinates analysis → estimation → compression → download.
  */
 
-/* global PDFLib, analyzePDF, compress, formatBytes, formatReduction, downloadBlob,
+/* global PDFLib, Utils, analyzePDF, compress, formatBytes, formatReduction, downloadBlob,
           estimateMetadataSize, estimateImageCompressSize, estimateFlattenSize,
+          estimateWasmOptimizerSize,
           _compressLog */
 
 (function() {
   'use strict';
-
-  // Configure pdf.js worker
-  var pdfjsLib = window['pdfjs-dist/build/pdf'];
-  if (pdfjsLib) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }
 
   // ── App state ──────────────────────────────────────────────────────
 
@@ -153,8 +147,10 @@
     $('#analyze-progress-fill').classList.add('indeterminate');
     $('#analyze-progress-fill').style.width = '';
 
-    analyzePDF(state.pdfBytes, function(fraction, text) {
-      $('#analyze-status').textContent = text;
+    Utils.ensurePDFJS().then(function() {
+      return analyzePDF(state.pdfBytes, function(fraction, text) {
+        $('#analyze-status').textContent = text;
+      });
     }).then(function(analysis) {
       state.analysis = analysis;
       showReport();
@@ -507,6 +503,11 @@
     var flatRes = formatReduction(a.totalSize, flatBytes, true);
     $('#size-flatten').textContent = flatRes.text;
     applySizeColor($('#size-flatten'), flatRes.cssClass);
+
+    var wasmBytes = estimateWasmOptimizerSize(a);
+    var wasmRes = formatReduction(a.totalSize, wasmBytes, true);
+    $('#size-wasm').textContent = wasmRes.text;
+    applySizeColor($('#size-wasm'), wasmRes.cssClass);
   }
 
   function getSelectedDPI(name) {
@@ -564,6 +565,8 @@
     var newSize = state.resultBytes.byteLength;
     var reduction = origSize > 0 ? (1 - newSize / origSize) * 100 : 0;
 
+    var reduced = newSize < origSize;
+
     $('#done-filename').textContent = state.resultFilename;
     $('#done-original').textContent = formatBytes(origSize);
     $('#done-compressed').textContent = formatBytes(newSize);
@@ -590,10 +593,17 @@
       logBtn.hidden = !(typeof _compressLog !== 'undefined' && _compressLog.length > 0);
     }
 
+    var downloadBtn = $('#btn-download');
+    if (downloadBtn) {
+      downloadBtn.textContent = reduced ? '\u21a7 Download' : 'Download anyway';
+    }
+
     showScreen('done');
 
-    // Auto-trigger download
-    downloadBlob(state.resultBytes, state.resultFilename);
+    // Auto-trigger only when the chosen mode actually reduced the file.
+    if (reduced) {
+      downloadBlob(state.resultBytes, state.resultFilename);
+    }
   }
 
   function updateComparisonBar(origSize, newSize, reduction) {

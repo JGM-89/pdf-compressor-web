@@ -1,17 +1,25 @@
 // Service Worker for PDF Compressor Web (PWA)
-var CACHE_NAME = 'pdf-tools-v15';
+var CACHE_NAME = 'pdf-tools-v17';
 
 var URLS_TO_CACHE = [
   '/',
   '/manifest.json',
+  '/vendor/pdf-lib.min.js',
+  '/vendor/pdf-lib-with-encrypt.min.js',
+  '/vendor/pdf.min.mjs',
+  '/vendor/pdf.worker.min.mjs',
+  '/vendor/qpdf.js',
+  '/vendor/qpdf.wasm',
   '/css/styles.css',
   '/css/shared.css',
   '/js/utils.js',
+  '/js/pdfjs-bridge.js',
   '/js/estimator.js',
   '/js/analyzer.js',
   '/js/metadata.js',
   '/js/image-compress.js',
   '/js/flatten.js',
+  '/js/wasm-optimizer.js',
   '/js/compressor.js',
   '/js/app.js',
   '/js/thumbnail.js',
@@ -61,9 +69,6 @@ self.addEventListener('fetch', function (event) {
 
   // Only handle same-origin requests
   if (url.origin !== self.location.origin) return;
-
-  // CDN libraries should not be cached by SW (browser cache handles them)
-  if (url.pathname.indexOf('/npm/') !== -1 || url.pathname.indexOf('/ajax/') !== -1) return;
 
   event.respondWith(
     // Try network first

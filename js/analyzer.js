@@ -208,6 +208,10 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
 
     // Detect Photoshop composite images (/Matte + /SMask = pre-multiplied alpha composite)
     var hasMatte = !!dict.get(PDFName.of('Matte'));
+    var hasSMask = !!dict.get(PDFName.of('SMask'));
+    var hasMask = !!dict.get(PDFName.of('Mask'));
+    var hasDecode = !!dict.get(PDFName.of('Decode'));
+    var hasDecodeParms = !!dict.get(PDFName.of('DecodeParms'));
     var smaskRef = null;
     if (hasMatte) {
       var smaskVal = dict.get(PDFName.of('SMask'));
@@ -227,6 +231,10 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
       isJpeg: filterName === 'DCTDecode',
       isMask: isMask,
       hasMatte: hasMatte,
+      hasSMask: hasSMask,
+      hasMask: hasMask,
+      hasDecode: hasDecode,
+      hasDecodeParms: hasDecodeParms,
       smaskRef: smaskRef
     });
     return;
