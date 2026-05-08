@@ -2,7 +2,7 @@
  * Compression orchestrator - delegates to the correct mode function.
  */
 
-/* global compressMetadata, compressImages, compressFlatten */
+/* global compressMetadata, compressImages, compressFlatten, QPDFOptimizer */
 
 /**
  * Run compression with the selected mode.
@@ -23,6 +23,9 @@ async function compress(mode, pdfBytes, analysis, options, onProgress) {
 
     case 'flatten':
       return compressFlatten(pdfBytes, analysis, options.quality, options.dpi, onProgress);
+
+    case 'wasm-optimize':
+      return QPDFOptimizer.optimize(pdfBytes, onProgress);
 
     default:
       throw new Error('Unknown compression mode: ' + mode);

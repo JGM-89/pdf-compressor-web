@@ -413,6 +413,64 @@ body {
   line-height: 1.5;
 }
 
+.target-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.target-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.target-input {
+  width: 96px;
+  background: #17345a;
+  border: 1px solid var(--accent-blue-dim);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 700;
+  padding: 7px 8px;
+  text-align: right;
+}
+
+.target-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.target-unit {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.target-guidance {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.target-guidance.success {
+  color: var(--success-green);
+}
+
+.target-guidance.warning {
+  color: var(--warning-amber);
+}
+
 /* ── Option Cards ────────────────────────────────────────────────────── */
 
 .option-card {
@@ -534,6 +592,7 @@ body {
   font-weight: 700;
   color: var(--success-green);
   white-space: nowrap;
+  text-align: right;
 }
 
 .option-desc {

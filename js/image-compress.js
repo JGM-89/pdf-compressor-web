@@ -49,19 +49,7 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
 
   // Filter to compressible images (skip tiny icons and unsupported formats)
   var images = analysis.images.filter(function(img) {
-    if (img.width < 8 || img.height < 8) {
-      _compressLog.push('SKIP ' + img.ref + ': too small (' + img.width + 'x' + img.height + ')');
-      return false;
-    }
-    if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') {
-      _compressLog.push('SKIP ' + img.ref + ': unsupported filter "' + img.filter + '"');
-      return false;
-    }
-    if (img.colorSpace === 'DeviceCMYK') {
-      _compressLog.push('SKIP ' + img.ref + ': CMYK not supported');
-      return false;
-    }
-    return true;
+    return isImageCompressionCandidate(pdfDoc, img, _compressLog);
   });
 
   _compressLog.push('');
@@ -143,7 +131,137 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
   return resultBytes;
 }
 
+function isImageCompressionCandidate(pdfDoc, img, log) {
+  log = log || [];
+    if (img.width < 8 || img.height < 8) {
+      log.push('SKIP ' + img.ref + ': too small (' + img.width + 'x' + img.height + ')');
+      return false;
+    }
+    if (img.isMask) {
+      log.push('SKIP ' + img.ref + ': image mask');
+      return false;
+    }
+    if (img.hasSMask || img.hasMask || img.hasDecode) {
+      log.push('SKIP ' + img.ref + ': transparency/mask/decode fields require preservation');
+      return false;
+    }
+    if (hasRiskyImageDictionary(pdfDoc, img)) {
+      log.push('SKIP ' + img.ref + ': risky image dictionary fields');
+      return false;
+    }
+    if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') {
+      log.push('SKIP ' + img.ref + ': unsupported filter "' + img.filter + '"');
+      return false;
+    }
+    if (img.colorSpace === 'DeviceCMYK') {
+      log.push('SKIP ' + img.ref + ': CMYK not supported');
+      return false;
+    }
+    return true;
+}
+
+async function estimateImageCompressPreflight(pdfBytes, analysis, quality, targetDPI) {
+  var PDFDocument = PDFLib.PDFDocument;
+  var oldLog = _compressLog;
+  var tempLog = [];
+  _compressLog = tempLog;
+
+  try {
+    var pdfDoc = await PDFDocument.load(pdfBytes, {
+      updateMetadata: false,
+      throwOnInvalidObject: false
+    });
+
+    var candidates = [];
+    var eligibleBytes = 0;
+    var skippedBytes = 0;
+    for (var i = 0; i < analysis.images.length; i++) {
+      var img = analysis.images[i];
+      if (isImageCompressionCandidate(pdfDoc, img, tempLog)) {
+        candidates.push(img);
+        eligibleBytes += img.rawSize || 0;
+      } else {
+        skippedBytes += img.rawSize || 0;
+      }
+    }
+
+    var sampleLimit = 8;
+    var byteLimit = 25 * 1024 * 1024;
+    var sampledBytes = 0;
+    var sampleSavings = 0;
+    var sampled = 0;
+
+    for (var j = 0; j < candidates.length; j++) {
+      if (sampled >= sampleLimit || sampledBytes >= byteLimit) break;
+      var item = candidates[j];
+      var originalSize = item.rawSize || 0;
+      sampledBytes += originalSize;
+      sampled++;
+
+      try {
+        var didReplace = await reencodeImage(pdfDoc, item, quality, targetDPI, analysis);
+        if (didReplace) {
+          var obj = pdfDoc.context.lookup(item.ref);
+          var newSize = obj && obj.contents ? (obj.contents.length || obj.contents.byteLength || 0) : originalSize;
+          sampleSavings += Math.max(0, originalSize - newSize);
+        }
+      } catch (e) {
+        // Failed samples are treated as unchanged, matching compressor behavior.
+      }
+
+      if (sampled % 2 === 0) await yieldToUI();
+    }
+
+    var removable = analysis.categories.metadata.size +
+      (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
+    var savingsRate = sampledBytes > 0 ? sampleSavings / sampledBytes : 0;
+    var projectedSavings = Math.min(eligibleBytes, eligibleBytes * savingsRate);
+    var estimate = Math.max(1024, analysis.totalSize - removable - projectedSavings);
+
+    var coverage = eligibleBytes > 0 ? sampledBytes / eligibleBytes : 1;
+    var skippedShare = analysis.categories.image.size > 0 ? skippedBytes / analysis.categories.image.size : 0;
+    var confidence = 'Low';
+    var spread = 0.4;
+    if (sampled > 0 && (coverage >= 0.6 || sampled >= sampleLimit) && skippedShare < 0.35) {
+      confidence = 'High';
+      spread = 0.15;
+    } else if (sampled > 0 && skippedShare < 0.6) {
+      confidence = 'Medium';
+      spread = 0.25;
+    }
+
+    return makeEstimateResult(estimate, spread, confidence,
+      'Sampled ' + sampled + ' of ' + candidates.length + ' eligible images');
+  } finally {
+    _compressLog = oldLog;
+  }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────
+
+function hasRiskyImageDictionary(pdfDoc, imgInfo) {
+  var PDFName = PDFLib.PDFName;
+  try {
+    var obj = pdfDoc.context.lookup(imgInfo.ref);
+    if (!obj || !obj.dict || !obj.dict.get) return true;
+
+    if (obj.dict.get(PDFName.of('SMask')) ||
+        obj.dict.get(PDFName.of('Mask')) ||
+        obj.dict.get(PDFName.of('ImageMask')) ||
+        obj.dict.get(PDFName.of('Decode'))) {
+      return true;
+    }
+
+    var filter = obj.dict.get(PDFName.of('Filter'));
+    filter = resolveVal(filter, pdfDoc.context);
+    if (filter && typeof filter.size === 'function' && filter.size() > 1) {
+      return true;
+    }
+  } catch (e) {
+    return true;
+  }
+  return false;
+}
 
 /**
  * Resolve a pdf-lib dictionary value, following indirect references.

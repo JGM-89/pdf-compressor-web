@@ -31,6 +31,7 @@
   /* ── File handling ──────────────────────────────────────────────── */
   function handleFile(file) {
     if (!file || !file.name.toLowerCase().endsWith('.pdf')) return;
+    if (!Utils.confirmLargePDFWork(file.size, file.name, { renderWarning: true })) return;
     state.fileName = file.name;
 
     var reader = new FileReader();

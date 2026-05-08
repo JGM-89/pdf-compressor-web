@@ -50,6 +50,7 @@
   /* ── File handling ──────────────────────────────────────────────── */
   function handleFile(file) {
     if (!file || !file.name.toLowerCase().endsWith('.pdf')) return;
+    if (!Utils.confirmLargePDFWork(file.size, file.name, { renderWarning: state.mode === 'unlock' })) return;
     state.fileName = file.name;
     state.fileSize = file.size;
 
@@ -203,11 +204,7 @@
     $('process-percent').textContent = '10%';
 
     try {
-      // Set up pdf.js worker
-      if (typeof pdfjsLib !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
+      var pdfjsLib = await Utils.ensurePDFJS();
 
       // Load with pdf.js using the password
       var loadingTask = pdfjsLib.getDocument({
@@ -238,6 +235,8 @@
         canvas.width = Math.floor(vp.width);
         canvas.height = Math.floor(vp.height);
         var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         await page.render({ canvasContext: ctx, viewport: vp }).promise;
 

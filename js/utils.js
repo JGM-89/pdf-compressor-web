@@ -61,6 +61,46 @@ function downloadBlob(uint8Array, filename) {
   setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
 }
 
+var PDF_FILE_LIMITS = {
+  defaultMaxBytes: 200 * 1024 * 1024,
+  mergeMaxTotalBytes: 200 * 1024 * 1024,
+  renderWarningBytes: 80 * 1024 * 1024
+};
+
+function confirmLargePDFWork(bytes, label, options) {
+  options = options || {};
+  var limit = options.limitBytes || PDF_FILE_LIMITS.defaultMaxBytes;
+  var renderWarning = options.renderWarning || false;
+
+  if (bytes <= limit && !(renderWarning && bytes > PDF_FILE_LIMITS.renderWarningBytes)) {
+    return true;
+  }
+
+  var message = label + ' is ' + formatBytes(bytes) + '.\n\n' +
+    'Large PDFs may make your browser slow down, freeze, or run out of memory because all processing happens on your device.';
+
+  if (renderWarning) {
+    message += '\n\nThis tool also renders pages to images for previews or output, which uses extra memory.';
+  }
+
+  message += '\n\nContinue?';
+  return confirm(message);
+}
+
+function confirmFilesWithinLimit(files, options) {
+  options = options || {};
+  var total = 0;
+  for (var i = 0; i < files.length; i++) {
+    total += files[i].size || 0;
+  }
+  var label = options.label || (files.length + ' selected PDF files');
+  var limit = options.limitBytes || PDF_FILE_LIMITS.defaultMaxBytes;
+  return confirmLargePDFWork(total, label, {
+    limitBytes: limit,
+    renderWarning: !!options.renderWarning
+  });
+}
+
 /**
  * Convert a canvas to JPEG bytes using toBlob (async).
  */
@@ -75,11 +115,21 @@ function canvasToJpegBytes(canvas, quality) {
   });
 }
 
+function ensurePDFJS() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (window.PDFJS_READY) return window.PDFJS_READY;
+  return Promise.reject(new Error('PDF renderer failed to load. Please refresh and try again.'));
+}
+
 /* ── Namespace for tool sub-pages ────────────────────────────────────── */
 var Utils = {
   formatBytes: formatBytes,
   formatReduction: formatReduction,
   yieldToUI: yieldToUI,
   downloadBlob: downloadBlob,
-  canvasToJpegBytes: canvasToJpegBytes
+  canvasToJpegBytes: canvasToJpegBytes,
+  ensurePDFJS: ensurePDFJS,
+  PDF_FILE_LIMITS: PDF_FILE_LIMITS,
+  confirmLargePDFWork: confirmLargePDFWork,
+  confirmFilesWithinLimit: confirmFilesWithinLimit
 };

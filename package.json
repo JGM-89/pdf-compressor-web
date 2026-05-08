@@ -1,0 +1,15 @@
+{
+  "name": "pdf-compressor-web",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Private browser-based PDF toolkit.",
+  "scripts": {
+    "vendor": "node scripts/vendor-libs.js"
+  },
+  "dependencies": {
+    "@neslinesli93/qpdf-wasm": "0.3.0",
+    "pdf-lib": "1.17.1",
+    "pdf-lib-with-encrypt": "1.2.1",
+    "pdfjs-dist": "5.7.284"
+  }
+}
