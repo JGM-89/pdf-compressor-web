@@ -13,7 +13,7 @@
   <!-- Open Graph (social sharing) -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="PDF Compressor Web - Free, Private, Browser-Based">
-  <meta property="og:description" content="Compress PDF files for free, entirely in your browser. No uploads, no servers, no tracking. 3 compression modes with real-time size estimates.">
+  <meta property="og:description" content="Compress PDF files for free, entirely in your browser. No uploads, no servers, no tracking. 3 compression modes with calibrated size estimates.">
   <meta property="og:url" content="https://pdf-compressor.org/">
 
   <!-- Twitter Card -->
@@ -148,6 +148,15 @@
         <p id="recommendation-text" class="recommendation-text"></p>
       </div>
 
+      <div class="target-card">
+        <div class="target-row">
+          <label for="target-size-input" class="target-label">Target size</label>
+          <input type="number" id="target-size-input" class="target-input" min="0.1" step="0.1" placeholder="Optional">
+          <span class="target-unit">MB</span>
+        </div>
+        <p id="target-guidance" class="target-guidance">Enter a target if you need the PDF under a specific upload limit.</p>
+      </div>
+
       <!-- Options -->
       <h3 class="section-title">Choose a compression option</h3>
 
@@ -260,10 +269,10 @@
         </div>
       </div>
 
-      <!-- Option 4: Advanced optimizer -->
+      <!-- Option 4: Structural cleanup -->
       <div class="option-section">
         <div class="section-divider"></div>
-        <h3 class="section-title">Or try advanced optimization</h3>
+        <h3 class="section-title">Or try structural cleanup</h3>
 
         <div class="option-card" data-mode="wasm-optimize">
           <div class="option-header">
@@ -272,12 +281,12 @@
               <span class="radio-dot"></span>
             </label>
             <div class="option-title-group">
-              <span class="option-title">Advanced optimizer</span>
+              <span class="option-title">Structural cleanup</span>
               <span id="badge-wasm" class="badge badge-smallest" hidden>STRUCTURAL</span>
             </div>
             <span id="size-wasm" class="option-size"></span>
           </div>
-          <p class="option-desc">Uses qpdf WebAssembly to repack and recompress PDF structure. Best for already image-optimised files. Loaded only when selected.</p>
+          <p class="option-desc">Uses qpdf WebAssembly to repack object streams and recompress PDF structure. Best for already image-optimised files; not a primary target-size mode.</p>
         </div>
       </div>
 
@@ -385,7 +394,7 @@
         <div class="feature-card">
           <div class="feature-icon">&#9881;&#65039;</div>
           <h3 class="feature-title">3 Compression Modes</h3>
-          <p class="feature-desc">Choose lossless cleanup, image compression, or full flatten. Real-time size estimates included.</p>
+          <p class="feature-desc">Choose lossless cleanup, image compression, or full flatten. Calibrated size estimates included.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">&#128736;&#65039;</div>

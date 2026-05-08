@@ -6,7 +6,8 @@
 
 /* global PDFLib, Utils, analyzePDF, compress, formatBytes, formatReduction, downloadBlob,
           estimateMetadataSize, estimateImageCompressSize, estimateFlattenSize,
-          estimateWasmOptimizerSize,
+          estimateWasmOptimizerSize, estimateImageCompressPreflight,
+          estimateFlattenPreflight, fixedEstimate, formatEstimateRange,
           _compressLog */
 
 (function() {
@@ -21,7 +22,9 @@
     analysis: null,
     selectedMode: 'metadata',
     resultBytes: null,
-    resultFilename: null
+    resultFilename: null,
+    estimateRun: 0,
+    estimates: {}
   };
 
   // ── DOM references ─────────────────────────────────────────────────
@@ -259,51 +262,24 @@
   // ── Recommendation logic (matches desktop app) ─────────────────────
 
   function computeRecommendation(analysis) {
-    var origKB = analysis.totalSize / 1024;
     var hasImages = analysis.categories.image.size > 5 * 1024;
+    var imageShare = analysis.totalSize > 0 ? analysis.categories.image.size / analysis.totalSize : 0;
+    var vectorShare = analysis.totalSize > 0 ?
+      (analysis.categories.vector.size + analysis.categories.other.size) / analysis.totalSize : 0;
 
     // Metadata strip estimate
     var metaKB = estimateMetadataSize(analysis) / 1024;
 
-    // Quality-best option (preserves text/vectors)
-    var qualityBestMode = 'metadata';
-    var qualityBestKB = metaKB;
-
-    var imgRecKB, imgMinKB;
-    if (hasImages) {
-      var imageKB = analysis.categories.image.size / 1024;
-      var nonImgKB = Math.max(1, origKB - imageKB);
-
-      // Default: q=75, dpi=150
-      var q75 = Math.pow(75 / 95, 0.6);
-      var dpi150 = Math.min(1.0, Math.pow(150 / 300, 2));
-      imgRecKB = nonImgKB + imageKB * q75 * dpi150;
-
-      // Aggressive: q=20, dpi=96
-      var q20 = Math.pow(20 / 95, 0.6);
-      var dpi96 = Math.min(1.0, Math.pow(96 / 300, 2));
-      imgMinKB = nonImgKB + imageKB * q20 * dpi96;
-
-      if (imgRecKB < qualityBestKB) {
-        qualityBestMode = 'image-compress';
-        qualityBestKB = imgRecKB;
-      }
-    }
-
-    // Flatten estimate
-    var flattenEstKB = analysis.pageCount * 300;
-    var flattenMinKB = analysis.pageCount * 300 * Math.pow(96 / 150, 2) * Math.pow(30 / 75, 0.6);
-
     // Determine badges
     var bestMode, smallestMode;
-    if (!hasImages && flattenEstKB < qualityBestKB) {
+    if (hasImages && imageShare >= 0.25) {
+      bestMode = 'image-compress';
+      smallestMode = vectorShare >= 0.35 ? 'flatten' : null;
+    } else if (!hasImages && vectorShare >= 0.45) {
       bestMode = 'flatten';
       smallestMode = null;
-    } else if (hasImages && flattenEstKB < qualityBestKB) {
-      bestMode = qualityBestMode;
-      smallestMode = 'flatten';
     } else {
-      bestMode = qualityBestMode;
+      bestMode = 'metadata';
       smallestMode = null;
     }
 
@@ -311,23 +287,15 @@
     var text;
     if (smallestMode === 'flatten') {
       if (bestMode === 'image-compress') {
-        text = 'Image compression at default settings gives ~' + formatBytes(imgRecKB * 1024) +
-          ' while keeping text selectable. Adjust quality and DPI for smaller files (down to ~' +
-          formatBytes(imgMinKB * 1024) + '). \'Flatten to images\' can reach ~' +
-          formatBytes(flattenEstKB * 1024) + ' but text won\'t be selectable.';
+        text = 'Image compression is the best first try for this file because most of its size is raster images. The estimate is calibrated from sampled images before you run the full compression.';
       } else {
         text = 'Lossless cleanup gives the best lossless result (' + formatBytes(metaKB * 1024) +
-          '). For maximum compression, \'Flatten to images\' can reach ~' +
-          formatBytes(flattenEstKB * 1024) + ' but text won\'t be selectable.';
+          '). For maximum compression, try \'Flatten to images\', but text won\'t be selectable.';
       }
     } else if (bestMode === 'flatten') {
-      text = 'Flattening to images at default settings gives ~' + formatBytes(flattenEstKB * 1024) +
-        '. Adjust DPI and quality for smaller files (down to ~' +
-        formatBytes(flattenMinKB * 1024) + '). Text becomes rasterised.';
+      text = 'Flattening to images is likely to reduce this PDF because it is heavy on vectors or page content. The estimate is calibrated from sampled page renders. Text becomes rasterised.';
     } else if (bestMode === 'image-compress') {
-      text = 'Image compression at default settings gives ~' + formatBytes(imgRecKB * 1024) +
-        '. Adjust quality and DPI for smaller files (down to ~' +
-        formatBytes(imgMinKB * 1024) + '). Text and vectors stay untouched.';
+      text = 'Image compression is the best first try for this file because most of its size is raster images. The estimate is calibrated from sampled images. Text and vectors stay untouched.';
     } else {
       text = 'Lossless cleanup gives the best result (' + formatBytes(metaKB * 1024) + '). ';
       if (!hasImages) {
@@ -441,6 +409,11 @@
         updateEstimates();
       });
     }
+
+    var targetInput = $('#target-size-input');
+    if (targetInput) {
+      targetInput.addEventListener('input', updateTargetGuidance);
+    }
   }
 
   function syncSliderInput(sliderId, inputId) {
@@ -481,33 +454,56 @@
   function updateEstimates() {
     if (!state.analysis) return;
     var a = state.analysis;
+    var runId = ++state.estimateRun;
+    state.estimates = {};
 
     // Metadata size
     var metaBytes = estimateMetadataSize(a);
-    var metaRes = formatReduction(a.totalSize, metaBytes, false);
-    $('#size-metadata').textContent = metaRes.text;
-    applySizeColor($('#size-metadata'), metaRes.cssClass);
+    state.estimates.metadata = fixedEstimate(metaBytes, 'High', 'Exact removable metadata calculation');
+    setEstimateText($('#size-metadata'), state.estimates.metadata, a.totalSize);
 
-    // Image compress size
     var imgQ = parseInt($('#img-quality-slider').value, 10) || 75;
     var imgDpi = getSelectedDPI('img-dpi');
-    var imgBytes = estimateImageCompressSize(a, imgQ, imgDpi);
-    var imgRes = formatReduction(a.totalSize, imgBytes, true);
-    $('#size-images').textContent = imgRes.text;
-    applySizeColor($('#size-images'), imgRes.cssClass);
+    var imgQuick = fixedEstimate(estimateImageCompressSize(a, imgQ, imgDpi), 'Low', 'Formula estimate while preflight runs');
+    state.estimates['image-compress'] = imgQuick;
+    setEstimateText($('#size-images'), imgQuick, a.totalSize);
 
-    // Flatten size
     var flatQ = parseInt($('#flatten-quality-slider').value, 10) || 75;
     var flatDpi = getSelectedDPI('flatten-dpi');
-    var flatBytes = estimateFlattenSize(a, flatQ, flatDpi);
-    var flatRes = formatReduction(a.totalSize, flatBytes, true);
-    $('#size-flatten').textContent = flatRes.text;
-    applySizeColor($('#size-flatten'), flatRes.cssClass);
+    var flatQuick = fixedEstimate(estimateFlattenSize(a, flatQ, flatDpi), 'Low', 'Formula estimate while preflight runs');
+    state.estimates.flatten = flatQuick;
+    setEstimateText($('#size-flatten'), flatQuick, a.totalSize);
 
-    var wasmBytes = estimateWasmOptimizerSize(a);
-    var wasmRes = formatReduction(a.totalSize, wasmBytes, true);
-    $('#size-wasm').textContent = wasmRes.text;
-    applySizeColor($('#size-wasm'), wasmRes.cssClass);
+    var wasmEstimate = fixedEstimate(estimateWasmOptimizerSize(a), 'Low', 'Structural cleanup estimate');
+    state.estimates['wasm-optimize'] = wasmEstimate;
+    setEstimateText($('#size-wasm'), wasmEstimate, a.totalSize);
+    updateTargetGuidance();
+
+    if (typeof estimateImageCompressPreflight === 'function' && a.images && a.images.length) {
+      $('#size-images').textContent = 'Calibrating...';
+      estimateImageCompressPreflight(state.pdfBytes, a, imgQ, imgDpi).then(function(result) {
+        if (runId !== state.estimateRun) return;
+        state.estimates['image-compress'] = result;
+        setEstimateText($('#size-images'), result, a.totalSize);
+        updateTargetGuidance();
+      }).catch(function(err) {
+        console.warn('Image estimate preflight failed:', err);
+        if (runId === state.estimateRun) setEstimateText($('#size-images'), imgQuick, a.totalSize);
+      });
+    }
+
+    if (typeof estimateFlattenPreflight === 'function') {
+      $('#size-flatten').textContent = 'Calibrating...';
+      estimateFlattenPreflight(state.pdfBytes, a, flatQ, flatDpi).then(function(result) {
+        if (runId !== state.estimateRun) return;
+        state.estimates.flatten = result;
+        setEstimateText($('#size-flatten'), result, a.totalSize);
+        updateTargetGuidance();
+      }).catch(function(err) {
+        console.warn('Flatten estimate preflight failed:', err);
+        if (runId === state.estimateRun) setEstimateText($('#size-flatten'), flatQuick, a.totalSize);
+      });
+    }
   }
 
   function getSelectedDPI(name) {
@@ -519,6 +515,61 @@
     el.style.color = '';
     if (cssClass === 'success') el.style.color = 'var(--success-green)';
     if (cssClass === 'warning') el.style.color = 'var(--warning-amber)';
+  }
+
+  function setEstimateText(el, estimate, originalBytes) {
+    if (!el) return;
+    el.textContent = formatEstimateRange(estimate, originalBytes);
+    var cssClass = estimate.estimate < originalBytes ? 'success' :
+      (estimate.estimate > originalBytes ? 'warning' : '');
+    applySizeColor(el, cssClass);
+  }
+
+  function updateTargetGuidance() {
+    var el = $('#target-guidance');
+    var input = $('#target-size-input');
+    if (!el || !input || !state.analysis) return;
+
+    var mb = parseFloat(input.value);
+    el.className = 'target-guidance';
+    if (!mb || mb <= 0) {
+      el.textContent = 'Enter a target if you need the PDF under a specific upload limit.';
+      return;
+    }
+
+    var targetBytes = mb * 1024 * 1024;
+    var modes = [
+      { key: 'metadata', label: 'Lossless cleanup' },
+      { key: 'image-compress', label: 'Compress images' },
+      { key: 'flatten', label: 'Flatten to images' }
+    ];
+
+    var best = null;
+    var closest = null;
+    for (var i = 0; i < modes.length; i++) {
+      var est = state.estimates[modes[i].key];
+      if (!est) continue;
+      var item = { key: modes[i].key, label: modes[i].label, estimate: est };
+      if (!closest || est.estimate < closest.estimate.estimate) closest = item;
+      if (est.max <= targetBytes) {
+        best = item;
+        break;
+      }
+    }
+
+    if (best) {
+      el.classList.add('success');
+      el.textContent = best.label + ' is likely to meet ' + mb + ' MB (' +
+        best.estimate.confidence + ' confidence).';
+      selectMode(best.key);
+      return;
+    }
+
+    if (closest) {
+      el.classList.add('warning');
+      el.textContent = 'No current setting is likely to reach ' + mb + ' MB. Closest estimate: ' +
+        closest.label + ' at ' + formatEstimateRange(closest.estimate, state.analysis.totalSize) + '.';
+    }
   }
 
   // ── Compression ────────────────────────────────────────────────────
@@ -695,6 +746,10 @@
     state.resultFilename = null;
     state.filename = null;
     state.selectedMode = 'metadata';
+    state.estimates = {};
+    state.estimateRun++;
+    var targetInput = $('#target-size-input');
+    if (targetInput) targetInput.value = '';
   }
 
   // ── Init ───────────────────────────────────────────────────────────
