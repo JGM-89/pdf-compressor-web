@@ -1,0 +1,783 @@
+name: Apply Codex estimator patch
+
+on:
+  push:
+    branches: [test-wasm-optimizer]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.ref == 'refs/heads/test-wasm-optimizer'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: test-wasm-optimizer
+      - name: Apply patch and remove temporary workflow
+        shell: bash
+        run: |
+          cat > /tmp/codex-estimator.patch <<'PATCH'
+diff --git a/css/styles.css b/css/styles.css
+index 831b27c..7f39220 100644
+--- a/css/styles.css
++++ b/css/styles.css
+@@ -413,6 +413,64 @@ body {
+   line-height: 1.5;
+ }
+ 
++.target-card {
++  background: var(--bg-card);
++  border: 1px solid var(--border-color);
++  border-radius: 6px;
++  padding: 12px 14px;
++  margin-bottom: 16px;
++}
++
++.target-row {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++}
++
++.target-label {
++  font-size: 13px;
++  font-weight: 700;
++  color: var(--text-muted);
++  flex: 1;
++}
++
++.target-input {
++  width: 96px;
++  background: #17345a;
++  border: 1px solid var(--accent-blue-dim);
++  border-radius: 4px;
++  color: var(--text-primary);
++  font: inherit;
++  font-weight: 700;
++  padding: 7px 8px;
++  text-align: right;
++}
++
++.target-input:focus {
++  outline: none;
++  border-color: var(--accent-blue);
++}
++
++.target-unit {
++  font-size: 13px;
++  color: var(--text-muted);
++}
++
++.target-guidance {
++  margin-top: 8px;
++  font-size: 12px;
++  color: var(--text-muted);
++  line-height: 1.4;
++}
++
++.target-guidance.success {
++  color: var(--success-green);
++}
++
++.target-guidance.warning {
++  color: var(--warning-amber);
++}
++
+ /* ── Option Cards ────────────────────────────────────────────────────── */
+ 
+ .option-card {
+@@ -534,6 +592,7 @@ body {
+   font-weight: 700;
+   color: var(--success-green);
+   white-space: nowrap;
++  text-align: right;
+ }
+ 
+ .option-desc {
+diff --git a/index.html b/index.html
+index f0cfe9f..bd19073 100644
+--- a/index.html
++++ b/index.html
+@@ -13,7 +13,7 @@
+   <!-- Open Graph (social sharing) -->
+   <meta property="og:type" content="website">
+   <meta property="og:title" content="PDF Compressor Web - Free, Private, Browser-Based">
+-  <meta property="og:description" content="Compress PDF files for free, entirely in your browser. No uploads, no servers, no tracking. 3 compression modes with real-time size estimates.">
++  <meta property="og:description" content="Compress PDF files for free, entirely in your browser. No uploads, no servers, no tracking. 3 compression modes with calibrated size estimates.">
+   <meta property="og:url" content="https://pdf-compressor.org/">
+ 
+   <!-- Twitter Card -->
+@@ -148,6 +148,15 @@
+         <p id="recommendation-text" class="recommendation-text"></p>
+       </div>
+ 
++      <div class="target-card">
++        <div class="target-row">
++          <label for="target-size-input" class="target-label">Target size</label>
++          <input type="number" id="target-size-input" class="target-input" min="0.1" step="0.1" placeholder="Optional">
++          <span class="target-unit">MB</span>
++        </div>
++        <p id="target-guidance" class="target-guidance">Enter a target if you need the PDF under a specific upload limit.</p>
++      </div>
++
+       <!-- Options -->
+       <h3 class="section-title">Choose a compression option</h3>
+ 
+@@ -260,10 +269,10 @@
+         </div>
+       </div>
+ 
+-      <!-- Option 4: Advanced optimizer -->
++      <!-- Option 4: Structural cleanup -->
+       <div class="option-section">
+         <div class="section-divider"></div>
+-        <h3 class="section-title">Or try advanced optimization</h3>
++        <h3 class="section-title">Or try structural cleanup</h3>
+ 
+         <div class="option-card" data-mode="wasm-optimize">
+           <div class="option-header">
+@@ -272,12 +281,12 @@
+               <span class="radio-dot"></span>
+             </label>
+             <div class="option-title-group">
+-              <span class="option-title">Advanced optimizer</span>
++              <span class="option-title">Structural cleanup</span>
+               <span id="badge-wasm" class="badge badge-smallest" hidden>STRUCTURAL</span>
+             </div>
+             <span id="size-wasm" class="option-size"></span>
+           </div>
+-          <p class="option-desc">Uses qpdf WebAssembly to repack and recompress PDF structure. Best for already image-optimised files. Loaded only when selected.</p>
++          <p class="option-desc">Uses qpdf WebAssembly to repack object streams and recompress PDF structure. Best for already image-optimised files; not a primary target-size mode.</p>
+         </div>
+       </div>
+ 
+@@ -385,7 +394,7 @@
+         <div class="feature-card">
+           <div class="feature-icon">&#9881;&#65039;</div>
+           <h3 class="feature-title">3 Compression Modes</h3>
+-          <p class="feature-desc">Choose lossless cleanup, image compression, or full flatten. Real-time size estimates included.</p>
++          <p class="feature-desc">Choose lossless cleanup, image compression, or full flatten. Calibrated size estimates included.</p>
+         </div>
+         <div class="feature-card">
+           <div class="feature-icon">&#128736;&#65039;</div>
+diff --git a/js/app.js b/js/app.js
+index 52ba72b..6960fb0 100644
+--- a/js/app.js
++++ b/js/app.js
+@@ -6,7 +6,8 @@
+ 
+ /* global PDFLib, Utils, analyzePDF, compress, formatBytes, formatReduction, downloadBlob,
+           estimateMetadataSize, estimateImageCompressSize, estimateFlattenSize,
+-          estimateWasmOptimizerSize,
++          estimateWasmOptimizerSize, estimateImageCompressPreflight,
++          estimateFlattenPreflight, fixedEstimate, formatEstimateRange,
+           _compressLog */
+ 
+ (function() {
+@@ -21,7 +22,9 @@
+     analysis: null,
+     selectedMode: 'metadata',
+     resultBytes: null,
+-    resultFilename: null
++    resultFilename: null,
++    estimateRun: 0,
++    estimates: {}
+   };
+ 
+   // ── DOM references ─────────────────────────────────────────────────
+@@ -259,51 +262,24 @@
+   // ── Recommendation logic (matches desktop app) ─────────────────────
+ 
+   function computeRecommendation(analysis) {
+-    var origKB = analysis.totalSize / 1024;
+     var hasImages = analysis.categories.image.size > 5 * 1024;
++    var imageShare = analysis.totalSize > 0 ? analysis.categories.image.size / analysis.totalSize : 0;
++    var vectorShare = analysis.totalSize > 0 ?
++      (analysis.categories.vector.size + analysis.categories.other.size) / analysis.totalSize : 0;
+ 
+     // Metadata strip estimate
+     var metaKB = estimateMetadataSize(analysis) / 1024;
+ 
+-    // Quality-best option (preserves text/vectors)
+-    var qualityBestMode = 'metadata';
+-    var qualityBestKB = metaKB;
+-
+-    var imgRecKB, imgMinKB;
+-    if (hasImages) {
+-      var imageKB = analysis.categories.image.size / 1024;
+-      var nonImgKB = Math.max(1, origKB - imageKB);
+-
+-      // Default: q=75, dpi=150
+-      var q75 = Math.pow(75 / 95, 0.6);
+-      var dpi150 = Math.min(1.0, Math.pow(150 / 300, 2));
+-      imgRecKB = nonImgKB + imageKB * q75 * dpi150;
+-
+-      // Aggressive: q=20, dpi=96
+-      var q20 = Math.pow(20 / 95, 0.6);
+-      var dpi96 = Math.min(1.0, Math.pow(96 / 300, 2));
+-      imgMinKB = nonImgKB + imageKB * q20 * dpi96;
+-
+-      if (imgRecKB < qualityBestKB) {
+-        qualityBestMode = 'image-compress';
+-        qualityBestKB = imgRecKB;
+-      }
+-    }
+-
+-    // Flatten estimate
+-    var flattenEstKB = analysis.pageCount * 300;
+-    var flattenMinKB = analysis.pageCount * 300 * Math.pow(96 / 150, 2) * Math.pow(30 / 75, 0.6);
+-
+     // Determine badges
+     var bestMode, smallestMode;
+-    if (!hasImages && flattenEstKB < qualityBestKB) {
++    if (hasImages && imageShare >= 0.25) {
++      bestMode = 'image-compress';
++      smallestMode = vectorShare >= 0.35 ? 'flatten' : null;
++    } else if (!hasImages && vectorShare >= 0.45) {
+       bestMode = 'flatten';
+       smallestMode = null;
+-    } else if (hasImages && flattenEstKB < qualityBestKB) {
+-      bestMode = qualityBestMode;
+-      smallestMode = 'flatten';
+     } else {
+-      bestMode = qualityBestMode;
++      bestMode = 'metadata';
+       smallestMode = null;
+     }
+ 
+@@ -311,23 +287,15 @@
+     var text;
+     if (smallestMode === 'flatten') {
+       if (bestMode === 'image-compress') {
+-        text = 'Image compression at default settings gives ~' + formatBytes(imgRecKB * 1024) +
+-          ' while keeping text selectable. Adjust quality and DPI for smaller files (down to ~' +
+-          formatBytes(imgMinKB * 1024) + '). \'Flatten to images\' can reach ~' +
+-          formatBytes(flattenEstKB * 1024) + ' but text won\'t be selectable.';
++        text = 'Image compression is the best first try for this file because most of its size is raster images. The estimate is calibrated from sampled images before you run the full compression.';
+       } else {
+         text = 'Lossless cleanup gives the best lossless result (' + formatBytes(metaKB * 1024) +
+-          '). For maximum compression, \'Flatten to images\' can reach ~' +
+-          formatBytes(flattenEstKB * 1024) + ' but text won\'t be selectable.';
++          '). For maximum compression, try \'Flatten to images\', but text won\'t be selectable.';
+       }
+     } else if (bestMode === 'flatten') {
+-      text = 'Flattening to images at default settings gives ~' + formatBytes(flattenEstKB * 1024) +
+-        '. Adjust DPI and quality for smaller files (down to ~' +
+-        formatBytes(flattenMinKB * 1024) + '). Text becomes rasterised.';
++      text = 'Flattening to images is likely to reduce this PDF because it is heavy on vectors or page content. The estimate is calibrated from sampled page renders. Text becomes rasterised.';
+     } else if (bestMode === 'image-compress') {
+-      text = 'Image compression at default settings gives ~' + formatBytes(imgRecKB * 1024) +
+-        '. Adjust quality and DPI for smaller files (down to ~' +
+-        formatBytes(imgMinKB * 1024) + '). Text and vectors stay untouched.';
++      text = 'Image compression is the best first try for this file because most of its size is raster images. The estimate is calibrated from sampled images. Text and vectors stay untouched.';
+     } else {
+       text = 'Lossless cleanup gives the best result (' + formatBytes(metaKB * 1024) + '). ';
+       if (!hasImages) {
+@@ -441,6 +409,11 @@
+         updateEstimates();
+       });
+     }
++
++    var targetInput = $('#target-size-input');
++    if (targetInput) {
++      targetInput.addEventListener('input', updateTargetGuidance);
++    }
+   }
+ 
+   function syncSliderInput(sliderId, inputId) {
+@@ -481,33 +454,56 @@
+   function updateEstimates() {
+     if (!state.analysis) return;
+     var a = state.analysis;
++    var runId = ++state.estimateRun;
++    state.estimates = {};
+ 
+     // Metadata size
+     var metaBytes = estimateMetadataSize(a);
+-    var metaRes = formatReduction(a.totalSize, metaBytes, false);
+-    $('#size-metadata').textContent = metaRes.text;
+-    applySizeColor($('#size-metadata'), metaRes.cssClass);
++    state.estimates.metadata = fixedEstimate(metaBytes, 'High', 'Exact removable metadata calculation');
++    setEstimateText($('#size-metadata'), state.estimates.metadata, a.totalSize);
+ 
+-    // Image compress size
+     var imgQ = parseInt($('#img-quality-slider').value, 10) || 75;
+     var imgDpi = getSelectedDPI('img-dpi');
+-    var imgBytes = estimateImageCompressSize(a, imgQ, imgDpi);
+-    var imgRes = formatReduction(a.totalSize, imgBytes, true);
+-    $('#size-images').textContent = imgRes.text;
+-    applySizeColor($('#size-images'), imgRes.cssClass);
++    var imgQuick = fixedEstimate(estimateImageCompressSize(a, imgQ, imgDpi), 'Low', 'Formula estimate while preflight runs');
++    state.estimates['image-compress'] = imgQuick;
++    setEstimateText($('#size-images'), imgQuick, a.totalSize);
+ 
+-    // Flatten size
+     var flatQ = parseInt($('#flatten-quality-slider').value, 10) || 75;
+     var flatDpi = getSelectedDPI('flatten-dpi');
+-    var flatBytes = estimateFlattenSize(a, flatQ, flatDpi);
+-    var flatRes = formatReduction(a.totalSize, flatBytes, true);
+-    $('#size-flatten').textContent = flatRes.text;
+-    applySizeColor($('#size-flatten'), flatRes.cssClass);
+-
+-    var wasmBytes = estimateWasmOptimizerSize(a);
+-    var wasmRes = formatReduction(a.totalSize, wasmBytes, true);
+-    $('#size-wasm').textContent = wasmRes.text;
+-    applySizeColor($('#size-wasm'), wasmRes.cssClass);
++    var flatQuick = fixedEstimate(estimateFlattenSize(a, flatQ, flatDpi), 'Low', 'Formula estimate while preflight runs');
++    state.estimates.flatten = flatQuick;
++    setEstimateText($('#size-flatten'), flatQuick, a.totalSize);
++
++    var wasmEstimate = fixedEstimate(estimateWasmOptimizerSize(a), 'Low', 'Structural cleanup estimate');
++    state.estimates['wasm-optimize'] = wasmEstimate;
++    setEstimateText($('#size-wasm'), wasmEstimate, a.totalSize);
++    updateTargetGuidance();
++
++    if (typeof estimateImageCompressPreflight === 'function' && a.images && a.images.length) {
++      $('#size-images').textContent = 'Calibrating...';
++      estimateImageCompressPreflight(state.pdfBytes, a, imgQ, imgDpi).then(function(result) {
++        if (runId !== state.estimateRun) return;
++        state.estimates['image-compress'] = result;
++        setEstimateText($('#size-images'), result, a.totalSize);
++        updateTargetGuidance();
++      }).catch(function(err) {
++        console.warn('Image estimate preflight failed:', err);
++        if (runId === state.estimateRun) setEstimateText($('#size-images'), imgQuick, a.totalSize);
++      });
++    }
++
++    if (typeof estimateFlattenPreflight === 'function') {
++      $('#size-flatten').textContent = 'Calibrating...';
++      estimateFlattenPreflight(state.pdfBytes, a, flatQ, flatDpi).then(function(result) {
++        if (runId !== state.estimateRun) return;
++        state.estimates.flatten = result;
++        setEstimateText($('#size-flatten'), result, a.totalSize);
++        updateTargetGuidance();
++      }).catch(function(err) {
++        console.warn('Flatten estimate preflight failed:', err);
++        if (runId === state.estimateRun) setEstimateText($('#size-flatten'), flatQuick, a.totalSize);
++      });
++    }
+   }
+ 
+   function getSelectedDPI(name) {
+@@ -521,6 +517,61 @@
+     if (cssClass === 'warning') el.style.color = 'var(--warning-amber)';
+   }
+ 
++  function setEstimateText(el, estimate, originalBytes) {
++    if (!el) return;
++    el.textContent = formatEstimateRange(estimate, originalBytes);
++    var cssClass = estimate.estimate < originalBytes ? 'success' :
++      (estimate.estimate > originalBytes ? 'warning' : '');
++    applySizeColor(el, cssClass);
++  }
++
++  function updateTargetGuidance() {
++    var el = $('#target-guidance');
++    var input = $('#target-size-input');
++    if (!el || !input || !state.analysis) return;
++
++    var mb = parseFloat(input.value);
++    el.className = 'target-guidance';
++    if (!mb || mb <= 0) {
++      el.textContent = 'Enter a target if you need the PDF under a specific upload limit.';
++      return;
++    }
++
++    var targetBytes = mb * 1024 * 1024;
++    var modes = [
++      { key: 'metadata', label: 'Lossless cleanup' },
++      { key: 'image-compress', label: 'Compress images' },
++      { key: 'flatten', label: 'Flatten to images' }
++    ];
++
++    var best = null;
++    var closest = null;
++    for (var i = 0; i < modes.length; i++) {
++      var est = state.estimates[modes[i].key];
++      if (!est) continue;
++      var item = { key: modes[i].key, label: modes[i].label, estimate: est };
++      if (!closest || est.estimate < closest.estimate.estimate) closest = item;
++      if (est.max <= targetBytes) {
++        best = item;
++        break;
++      }
++    }
++
++    if (best) {
++      el.classList.add('success');
++      el.textContent = best.label + ' is likely to meet ' + mb + ' MB (' +
++        best.estimate.confidence + ' confidence).';
++      selectMode(best.key);
++      return;
++    }
++
++    if (closest) {
++      el.classList.add('warning');
++      el.textContent = 'No current setting is likely to reach ' + mb + ' MB. Closest estimate: ' +
++        closest.label + ' at ' + formatEstimateRange(closest.estimate, state.analysis.totalSize) + '.';
++    }
++  }
++
+   // ── Compression ────────────────────────────────────────────────────
+ 
+   function startCompression() {
+@@ -695,6 +746,10 @@
+     state.resultFilename = null;
+     state.filename = null;
+     state.selectedMode = 'metadata';
++    state.estimates = {};
++    state.estimateRun++;
++    var targetInput = $('#target-size-input');
++    if (targetInput) targetInput.value = '';
+   }
+ 
+   // ── Init ───────────────────────────────────────────────────────────
+diff --git a/js/estimator.js b/js/estimator.js
+index 105a47e..f371943 100644
+--- a/js/estimator.js
++++ b/js/estimator.js
+@@ -1,6 +1,5 @@
+ /**
+- * Real-time size estimation formulas.
+- * These match the desktop app's estimation logic.
++ * Size estimation and preflight helpers.
+  */
+ 
+ /**
+@@ -13,17 +12,9 @@ function estimateMetadataSize(analysis) {
+   return Math.max(1024, analysis.totalSize - removable);
+ }
+ 
+-/**
+- * Estimate the result size of image compression.
+- * @param {object} analysis - Analysis result
+- * @param {number} quality  - JPEG quality 20-95
+- * @param {number} dpi      - Max DPI (0 = original, 96/150/300)
+- */
+ function estimateImageCompressSize(analysis, quality, dpi) {
+   var imageBytes = analysis.categories.image.size;
+-  // Subtract metadata + Photoshop data (stripped alongside image compression)
+-  var removable = analysis.categories.metadata.size +
+-                  (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
++  var removable = removableBytes(analysis);
+   var nonImageBytes = Math.max(1024, analysis.totalSize - imageBytes - removable);
+ 
+   var qScale = Math.pow(quality / 95, 0.6);
+@@ -35,31 +26,132 @@ function estimateImageCompressSize(analysis, quality, dpi) {
+   return Math.round(nonImageBytes + imageBytes * qScale * dpiScale);
+ }
+ 
+-/**
+- * Estimate the result size of flatten-to-images.
+- * @param {object} analysis - Analysis result
+- * @param {number} quality  - JPEG quality 30-95
+- * @param {number} dpi      - Render DPI (96/120/150/300)
+- */
+ function estimateFlattenSize(analysis, quality, dpi) {
+-  var pages = analysis.pageCount;
+-  // Base: ~300 KB per page at 150 DPI, quality 75
++  var pages = analysis.pageCount || 1;
+   var basePerPage = 300 * 1024;
+   var dpiScale = Math.pow(dpi / 150, 2);
+   var qScale = Math.pow(quality / 75, 0.6);
+   return Math.round(pages * basePerPage * dpiScale * qScale);
+ }
+ 
+-/**
+- * Conservative estimate for qpdf WASM structural optimization.
+- * This varies heavily by PDF; final output is checked before auto-download.
+- */
+ function estimateWasmOptimizerSize(analysis) {
+   var structuralBytes = analysis.categories.other.size +
+     analysis.categories.vector.size +
+     analysis.categories.font.size +
+     analysis.categories.metadata.size +
+     (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
+-  var likelySavings = Math.min(analysis.totalSize * 0.12, structuralBytes * 0.25);
++  var likelySavings = Math.min(analysis.totalSize * 0.08, structuralBytes * 0.18);
+   return Math.max(1024, Math.round(analysis.totalSize - likelySavings));
+ }
++
++function removableBytes(analysis) {
++  return analysis.categories.metadata.size +
++    (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
++}
++
++function makeEstimateResult(estimate, spread, confidence, details) {
++  var min = Math.max(1024, Math.round(estimate * (1 - spread)));
++  var max = Math.max(min, Math.round(estimate * (1 + spread)));
++  return {
++    estimate: Math.round(estimate),
++    min: min,
++    max: max,
++    confidence: confidence,
++    details: details || ''
++  };
++}
++
++function fixedEstimate(bytes, confidence, details) {
++  return {
++    estimate: Math.round(bytes),
++    min: Math.round(bytes),
++    max: Math.round(bytes),
++    confidence: confidence || 'High',
++    details: details || ''
++  };
++}
++
++function formatEstimateRange(result, originalBytes) {
++  var text;
++  if (Math.abs(result.max - result.min) < 1024) {
++    text = '~' + formatBytes(result.estimate);
++  } else {
++    text = '~' + formatBytes(result.min) + '-' + formatBytes(result.max);
++  }
++
++  var pct = originalBytes > 0 ? (1 - result.estimate / originalBytes) * 100 : 0;
++  if (pct >= 1) {
++    text += ' (' + pct.toFixed(0) + '%)';
++  } else if (pct <= -1) {
++    text += ' (' + Math.abs(pct).toFixed(0) + '% larger)';
++  } else {
++    text += ' (no change)';
++  }
++  text += ' ' + result.confidence + ' confidence';
++  return text;
++}
++
++async function estimateFlattenPreflight(pdfBytes, analysis, quality, dpi) {
++  var pdfjsLib = await Utils.ensurePDFJS();
++  var loadingTask = pdfjsLib.getDocument({ data: pdfBytes.slice() });
++  var pdfJsDoc = await loadingTask.promise;
++  var pageCount = pdfJsDoc.numPages;
++  var pages = samplePageNumbers(pageCount);
++  var totalArea = 0;
++  var sampleRatioSum = 0;
++  var sampled = 0;
++
++  try {
++    for (var i = 0; i < pages.length; i++) {
++      var page = await pdfJsDoc.getPage(pages[i]);
++      var origViewport = page.getViewport({ scale: 1 });
++      var area = Math.max(1, origViewport.width * origViewport.height);
++      var scale = dpi / 72;
++      var viewport = page.getViewport({ scale: scale });
++
++      var canvas = document.createElement('canvas');
++      canvas.width = Math.max(1, Math.round(viewport.width));
++      canvas.height = Math.max(1, Math.round(viewport.height));
++      var ctx = canvas.getContext('2d');
++      ctx.fillStyle = '#FFFFFF';
++      ctx.fillRect(0, 0, canvas.width, canvas.height);
++      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
++
++      var jpegBytes = await canvasToJpegBytes(canvas, quality);
++      sampleRatioSum += jpegBytes.byteLength / area;
++      sampled++;
++
++      page.cleanup();
++      canvas.width = 1;
++      canvas.height = 1;
++    }
++
++    for (var p = 1; p <= pageCount; p++) {
++      var page2 = await pdfJsDoc.getPage(p);
++      var vp = page2.getViewport({ scale: 1 });
++      totalArea += Math.max(1, vp.width * vp.height);
++      page2.cleanup();
++    }
++  } finally {
++    pdfJsDoc.destroy();
++  }
++
++  var avgBytesPerArea = sampleRatioSum / Math.max(1, sampled);
++  var pdfOverhead = 2048 + pageCount * 512;
++  var estimate = totalArea * avgBytesPerArea + pdfOverhead;
++  var spread = sampled >= 3 ? 0.18 : 0.28;
++  return makeEstimateResult(estimate, spread, sampled >= 3 ? 'Medium' : 'Low',
++    'Sampled ' + sampled + ' of ' + pageCount + ' pages');
++}
++
++function samplePageNumbers(pageCount) {
++  if (pageCount <= 1) return [1];
++  if (pageCount === 2) return [1, 2];
++  var mid = Math.max(2, Math.round(pageCount / 2));
++  var pages = [1, mid, pageCount];
++  var unique = [];
++  for (var i = 0; i < pages.length; i++) {
++    if (unique.indexOf(pages[i]) === -1) unique.push(pages[i]);
++  }
++  return unique;
++}
+diff --git a/js/image-compress.js b/js/image-compress.js
+index 7c243d7..91f6ab7 100644
+--- a/js/image-compress.js
++++ b/js/image-compress.js
+@@ -49,31 +49,7 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
+ 
+   // Filter to compressible images (skip tiny icons and unsupported formats)
+   var images = analysis.images.filter(function(img) {
+-    if (img.width < 8 || img.height < 8) {
+-      _compressLog.push('SKIP ' + img.ref + ': too small (' + img.width + 'x' + img.height + ')');
+-      return false;
+-    }
+-    if (img.isMask) {
+-      _compressLog.push('SKIP ' + img.ref + ': image mask');
+-      return false;
+-    }
+-    if (img.hasSMask || img.hasMask || img.hasDecode) {
+-      _compressLog.push('SKIP ' + img.ref + ': transparency/mask/decode fields require preservation');
+-      return false;
+-    }
+-    if (hasRiskyImageDictionary(pdfDoc, img)) {
+-      _compressLog.push('SKIP ' + img.ref + ': risky image dictionary fields');
+-      return false;
+-    }
+-    if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') {
+-      _compressLog.push('SKIP ' + img.ref + ': unsupported filter "' + img.filter + '"');
+-      return false;
+-    }
+-    if (img.colorSpace === 'DeviceCMYK') {
+-      _compressLog.push('SKIP ' + img.ref + ': CMYK not supported');
+-      return false;
+-    }
+-    return true;
++    return isImageCompressionCandidate(pdfDoc, img, _compressLog);
+   });
+ 
+   _compressLog.push('');
+@@ -155,6 +131,112 @@ async function compressImages(pdfBytes, analysis, quality, targetDPI, onProgress
+   return resultBytes;
+ }
+ 
++function isImageCompressionCandidate(pdfDoc, img, log) {
++  log = log || [];
++    if (img.width < 8 || img.height < 8) {
++      log.push('SKIP ' + img.ref + ': too small (' + img.width + 'x' + img.height + ')');
++      return false;
++    }
++    if (img.isMask) {
++      log.push('SKIP ' + img.ref + ': image mask');
++      return false;
++    }
++    if (img.hasSMask || img.hasMask || img.hasDecode) {
++      log.push('SKIP ' + img.ref + ': transparency/mask/decode fields require preservation');
++      return false;
++    }
++    if (hasRiskyImageDictionary(pdfDoc, img)) {
++      log.push('SKIP ' + img.ref + ': risky image dictionary fields');
++      return false;
++    }
++    if (img.filter !== 'DCTDecode' && img.filter !== 'FlateDecode' && img.filter !== '') {
++      log.push('SKIP ' + img.ref + ': unsupported filter "' + img.filter + '"');
++      return false;
++    }
++    if (img.colorSpace === 'DeviceCMYK') {
++      log.push('SKIP ' + img.ref + ': CMYK not supported');
++      return false;
++    }
++    return true;
++}
++
++async function estimateImageCompressPreflight(pdfBytes, analysis, quality, targetDPI) {
++  var PDFDocument = PDFLib.PDFDocument;
++  var oldLog = _compressLog;
++  var tempLog = [];
++  _compressLog = tempLog;
++
++  try {
++    var pdfDoc = await PDFDocument.load(pdfBytes, {
++      updateMetadata: false,
++      throwOnInvalidObject: false
++    });
++
++    var candidates = [];
++    var eligibleBytes = 0;
++    var skippedBytes = 0;
++    for (var i = 0; i < analysis.images.length; i++) {
++      var img = analysis.images[i];
++      if (isImageCompressionCandidate(pdfDoc, img, tempLog)) {
++        candidates.push(img);
++        eligibleBytes += img.rawSize || 0;
++      } else {
++        skippedBytes += img.rawSize || 0;
++      }
++    }
++
++    var sampleLimit = 8;
++    var byteLimit = 25 * 1024 * 1024;
++    var sampledBytes = 0;
++    var sampleSavings = 0;
++    var sampled = 0;
++
++    for (var j = 0; j < candidates.length; j++) {
++      if (sampled >= sampleLimit || sampledBytes >= byteLimit) break;
++      var item = candidates[j];
++      var originalSize = item.rawSize || 0;
++      sampledBytes += originalSize;
++      sampled++;
++
++      try {
++        var didReplace = await reencodeImage(pdfDoc, item, quality, targetDPI, analysis);
++        if (didReplace) {
++          var obj = pdfDoc.context.lookup(item.ref);
++          var newSize = obj && obj.contents ? (obj.contents.length || obj.contents.byteLength || 0) : originalSize;
++          sampleSavings += Math.max(0, originalSize - newSize);
++        }
++      } catch (e) {
++        // Failed samples are treated as unchanged, matching compressor behavior.
++      }
++
++      if (sampled % 2 === 0) await yieldToUI();
++    }
++
++    var removable = analysis.categories.metadata.size +
++      (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
++    var savingsRate = sampledBytes > 0 ? sampleSavings / sampledBytes : 0;
++    var projectedSavings = Math.min(eligibleBytes, eligibleBytes * savingsRate);
++    var estimate = Math.max(1024, analysis.totalSize - removable - projectedSavings);
++
++    var coverage = eligibleBytes > 0 ? sampledBytes / eligibleBytes : 1;
++    var skippedShare = analysis.categories.image.size > 0 ? skippedBytes / analysis.categories.image.size : 0;
++    var confidence = 'Low';
++    var spread = 0.4;
++    if (sampled > 0 && (coverage >= 0.6 || sampled >= sampleLimit) && skippedShare < 0.35) {
++      confidence = 'High';
++      spread = 0.15;
++    } else if (sampled > 0 && skippedShare < 0.6) {
++      confidence = 'Medium';
++      spread = 0.25;
++    }
++
++    return makeEstimateResult(estimate, spread, confidence,
++      'Sampled ' + sampled + ' of ' + candidates.length + ' eligible images');
++  } finally {
++    _compressLog = oldLog;
++  }
++}
++
+ // ── Helpers ─────────────────────────────────────────────────────────
+ 
+ function hasRiskyImageDictionary(pdfDoc, imgInfo) {
+diff --git a/sw.js b/sw.js
+index 436abad..eea05eb 100644
+--- a/sw.js
++++ b/sw.js
+@@ -1,5 +1,5 @@
+ // Service Worker for PDF Compressor Web (PWA)
+-var CACHE_NAME = 'pdf-tools-v17';
++var CACHE_NAME = 'pdf-tools-v19';
+ 
+ var URLS_TO_CACHE = [
+   '/',
+PATCH
+          git apply --3way /tmp/codex-estimator.patch
+          rm -f .github/workflows/apply-codex-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add css/styles.css index.html js/app.js js/estimator.js js/image-compress.js sw.js .github/workflows/apply-codex-patch.yml
+          git commit -m "Restore calibrated compression estimates"
+          git push origin HEAD:test-wasm-optimizer
