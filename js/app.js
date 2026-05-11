@@ -540,8 +540,10 @@
       var token = ++state.preflightToken;
       $('#size-images').textContent = 'Calibrating...';
       estimateImageCompressPreflight(state.pdfBytes, a, s.q, s.dpi).then(function(result) {
-        state.preflightCache[key] = result;
+        // Token check first: if the file/cache was reset while we were running,
+        // do not write a stale result into the freshly cleared cache.
         if (token !== state.preflightToken) return;
+        state.preflightCache[key] = result;
         updateQuickEstimates();
       }).catch(function(err) {
         console.warn('Image estimate preflight failed:', err);
@@ -557,8 +559,8 @@
       var token2 = ++state.preflightToken;
       $('#size-flatten').textContent = 'Calibrating...';
       estimateFlattenPreflight(state.pdfBytes, a, s2.q, s2.dpi).then(function(result) {
-        state.preflightCache[key2] = result;
         if (token2 !== state.preflightToken) return;
+        state.preflightCache[key2] = result;
         updateQuickEstimates();
       }).catch(function(err) {
         console.warn('Flatten estimate preflight failed:', err);
