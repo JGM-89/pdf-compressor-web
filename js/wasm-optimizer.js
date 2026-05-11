@@ -6,6 +6,7 @@ var QPDFOptimizer = (function() {
   var modulePromise = null;
   var scriptPromise = null;
   var runId = 0;
+  var activeRuns = 0;
 
   function loadScript() {
     if (scriptPromise) return scriptPromise;
@@ -45,36 +46,41 @@ var QPDFOptimizer = (function() {
 
   async function optimize(pdfBytes, onProgress) {
     onProgress(0.05, 'Loading advanced optimizer...');
-    var qpdf = await loadModule();
-
-    var id = ++runId;
-    var inputPath = '/input-' + id + '.pdf';
-    var outputPath = '/output-' + id + '.pdf';
-
-    onProgress(0.2, 'Preparing PDF for qpdf...');
-    qpdf.FS.writeFile(inputPath, pdfBytes);
-
+    activeRuns++;
     try {
-      onProgress(0.35, 'Optimizing PDF structure...');
-      qpdf.callMain([
-        inputPath,
-        outputPath,
-        '--object-streams=generate',
-        '--recompress-flate',
-        '--compression-level=9',
-        '--deterministic-id'
-      ]);
+      var qpdf = await loadModule();
 
-      onProgress(0.9, 'Reading optimized PDF...');
-      var output = qpdf.FS.readFile(outputPath);
-      if (!output || output.byteLength === 0) {
-        throw new Error('qpdf did not produce an output PDF.');
+      var id = ++runId;
+      var inputPath = '/input-' + id + '.pdf';
+      var outputPath = '/output-' + id + '.pdf';
+
+      onProgress(0.2, 'Preparing PDF for qpdf...');
+      qpdf.FS.writeFile(inputPath, pdfBytes);
+
+      try {
+        onProgress(0.35, 'Optimizing PDF structure...');
+        qpdf.callMain([
+          inputPath,
+          outputPath,
+          '--object-streams=generate',
+          '--recompress-flate',
+          '--compression-level=9',
+          '--deterministic-id'
+        ]);
+
+        onProgress(0.9, 'Reading optimized PDF...');
+        var output = qpdf.FS.readFile(outputPath);
+        if (!output || output.byteLength === 0) {
+          throw new Error('qpdf did not produce an output PDF.');
+        }
+
+        onProgress(1, 'Done');
+        return output;
+      } finally {
+        cleanupFS(qpdf, [inputPath, outputPath]);
       }
-
-      onProgress(1, 'Done');
-      return output;
     } finally {
-      cleanupFS(qpdf, [inputPath, outputPath]);
+      activeRuns--;
     }
   }
 
@@ -85,8 +91,19 @@ var QPDFOptimizer = (function() {
     return 'qpdf saved ' + formatBytes(inputBytes - outputBytes) + '.';
   }
 
+  // Drop our references to the qpdf module so the Emscripten instance
+  // (heap, FS, etc.) can be garbage collected. The compiled WASM may still
+  // sit in the browser's module cache, but its allocated runtime is freed.
+  // Skip if an optimize() is still in flight — it holds its own qpdf reference,
+  // and nulling here would force the next call to reload the WASM unnecessarily.
+  function release() {
+    if (activeRuns > 0) return;
+    modulePromise = null;
+  }
+
   return {
     optimize: optimize,
-    describeSavings: describeSavings
+    describeSavings: describeSavings,
+    release: release
   };
 })();

@@ -791,8 +791,15 @@ async function reencodeImage(pdfDoc, imgInfo, quality, targetDPI, analysis) {
     var deflated = await deflateBytes(grayData);
     log.push('  gray flate: ' + (deflated ? deflated.length + 'b' : 'null') + ' vs original ' + originalSize + 'b');
 
-    if (deflated && deflated.length < originalSize) {
-      // Also try JPEG and pick whichever is smaller
+    // For small images, skip the JPEG comparison: the savings from picking
+    // between Flate and JPEG is dwarfed by the cost of running both encoders.
+    var SMALL_GRAY_THRESHOLD = 50 * 1024;
+    if (deflated && deflated.length < originalSize && originalSize < SMALL_GRAY_THRESHOLD) {
+      newBytes = deflated;
+      newFilter = 'FlateDecode';
+      newColorSpace = 'DeviceGray';
+    } else if (deflated && deflated.length < originalSize) {
+      // Larger image: pick whichever of Flate vs JPEG is smaller
       var jpegBytes = await canvasToJpegBytes(outputCanvas, quality);
       log.push('  gray jpeg: ' + jpegBytes.length + 'b');
 
