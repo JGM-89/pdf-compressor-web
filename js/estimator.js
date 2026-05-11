@@ -97,8 +97,8 @@ async function estimateFlattenPreflight(pdfBytes, analysis, quality, dpi) {
   var pdfJsDoc = await loadingTask.promise;
   var pageCount = pdfJsDoc.numPages;
   var pages = samplePageNumbers(pageCount);
-  var totalArea = 0;
   var sampleRatioSum = 0;
+  var sampleAreaSum = 0;
   var sampled = 0;
 
   try {
@@ -119,27 +119,26 @@ async function estimateFlattenPreflight(pdfBytes, analysis, quality, dpi) {
 
       var jpegBytes = await canvasToJpegBytes(canvas, quality);
       sampleRatioSum += jpegBytes.byteLength / area;
+      sampleAreaSum += area;
       sampled++;
 
       page.cleanup();
       canvas.width = 1;
       canvas.height = 1;
     }
-
-    for (var p = 1; p <= pageCount; p++) {
-      var page2 = await pdfJsDoc.getPage(p);
-      var vp = page2.getViewport({ scale: 1 });
-      totalArea += Math.max(1, vp.width * vp.height);
-      page2.cleanup();
-    }
   } finally {
     pdfJsDoc.destroy();
   }
 
+  // Approximate total area as average sampled area × pageCount, rather than
+  // walking every page. Sampling first/middle/last gives a reasonable area
+  // average for typical documents, and the estimate is already approximate.
   var avgBytesPerArea = sampleRatioSum / Math.max(1, sampled);
+  var avgArea = sampleAreaSum / Math.max(1, sampled);
+  var totalArea = avgArea * pageCount;
   var pdfOverhead = 2048 + pageCount * 512;
   var estimate = totalArea * avgBytesPerArea + pdfOverhead;
-  var spread = sampled >= 3 ? 0.18 : 0.28;
+  var spread = sampled >= 3 ? 0.2 : 0.3;
   return makeEstimateResult(estimate, spread, sampled >= 3 ? 'Medium' : 'Low',
     'Sampled ' + sampled + ' of ' + pageCount + ' pages');
 }

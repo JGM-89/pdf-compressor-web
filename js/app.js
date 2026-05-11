@@ -23,9 +23,14 @@
     selectedMode: 'metadata',
     resultBytes: null,
     resultFilename: null,
-    estimateRun: 0,
-    estimates: {}
+    compressionDidReduce: true,
+    estimates: {},
+    preflightCache: {},   // key: 'mode|q|dpi' → estimate result
+    preflightTimer: null,
+    preflightToken: 0
   };
+
+  var PREFLIGHT_DEBOUNCE_MS = 300;
 
   // ── DOM references ─────────────────────────────────────────────────
 
@@ -130,6 +135,9 @@
     }
 
     state.filename = file.name;
+    state.preflightCache = {};
+    state.preflightToken++;
+    if (state.preflightTimer) { clearTimeout(state.preflightTimer); state.preflightTimer = null; }
 
     var reader = new FileReader();
     reader.onload = function() {
@@ -450,58 +458,111 @@
   }
 
   // ── Estimate updates ───────────────────────────────────────────────
+  //
+  // Quick estimates (formulae) update synchronously on every slider tick.
+  // Preflights (real sampled compression) are debounced and only fire for
+  // the currently selected mode. Results are cached by (mode, q, dpi).
 
   function updateEstimates() {
     if (!state.analysis) return;
+    updateQuickEstimates();
+    schedulePreflight();
+  }
+
+  function imgSettings() {
+    return {
+      q: parseInt($('#img-quality-slider').value, 10) || 75,
+      dpi: getSelectedDPI('img-dpi')
+    };
+  }
+
+  function flatSettings() {
+    return {
+      q: parseInt($('#flatten-quality-slider').value, 10) || 75,
+      dpi: getSelectedDPI('flatten-dpi')
+    };
+  }
+
+  function preflightKey(mode, q, dpi) { return mode + '|' + q + '|' + dpi; }
+
+  function updateQuickEstimates() {
     var a = state.analysis;
-    var runId = ++state.estimateRun;
     state.estimates = {};
 
-    // Metadata size
+    // Metadata size — always exact
     var metaBytes = estimateMetadataSize(a);
     state.estimates.metadata = fixedEstimate(metaBytes, 'High', 'Exact removable metadata calculation');
     setEstimateText($('#size-metadata'), state.estimates.metadata, a.totalSize);
 
-    var imgQ = parseInt($('#img-quality-slider').value, 10) || 75;
-    var imgDpi = getSelectedDPI('img-dpi');
-    var imgQuick = fixedEstimate(estimateImageCompressSize(a, imgQ, imgDpi), 'Low', 'Formula estimate while preflight runs');
-    state.estimates['image-compress'] = imgQuick;
-    setEstimateText($('#size-images'), imgQuick, a.totalSize);
+    // Image-compress: use cached preflight if available, else formula
+    var img = imgSettings();
+    var imgCached = state.preflightCache[preflightKey('image-compress', img.q, img.dpi)];
+    state.estimates['image-compress'] = imgCached || fixedEstimate(
+      estimateImageCompressSize(a, img.q, img.dpi),
+      'Low', 'Formula estimate'
+    );
+    setEstimateText($('#size-images'), state.estimates['image-compress'], a.totalSize);
 
-    var flatQ = parseInt($('#flatten-quality-slider').value, 10) || 75;
-    var flatDpi = getSelectedDPI('flatten-dpi');
-    var flatQuick = fixedEstimate(estimateFlattenSize(a, flatQ, flatDpi), 'Low', 'Formula estimate while preflight runs');
-    state.estimates.flatten = flatQuick;
-    setEstimateText($('#size-flatten'), flatQuick, a.totalSize);
+    // Flatten: use cached preflight if available, else formula
+    var flat = flatSettings();
+    var flatCached = state.preflightCache[preflightKey('flatten', flat.q, flat.dpi)];
+    state.estimates.flatten = flatCached || fixedEstimate(
+      estimateFlattenSize(a, flat.q, flat.dpi),
+      'Low', 'Formula estimate'
+    );
+    setEstimateText($('#size-flatten'), state.estimates.flatten, a.totalSize);
 
-    var wasmEstimate = fixedEstimate(estimateWasmOptimizerSize(a), 'Low', 'Structural cleanup estimate');
-    state.estimates['wasm-optimize'] = wasmEstimate;
-    setEstimateText($('#size-wasm'), wasmEstimate, a.totalSize);
+    state.estimates['wasm-optimize'] = fixedEstimate(
+      estimateWasmOptimizerSize(a), 'Low', 'Structural cleanup estimate'
+    );
+    setEstimateText($('#size-wasm'), state.estimates['wasm-optimize'], a.totalSize);
+
     updateTargetGuidance();
+  }
 
-    if (typeof estimateImageCompressPreflight === 'function' && a.images && a.images.length) {
+  function schedulePreflight() {
+    if (state.preflightTimer) clearTimeout(state.preflightTimer);
+    state.preflightTimer = setTimeout(runSelectedPreflight, PREFLIGHT_DEBOUNCE_MS);
+  }
+
+  function runSelectedPreflight() {
+    state.preflightTimer = null;
+    if (!state.analysis) return;
+    var a = state.analysis;
+    var mode = state.selectedMode;
+
+    if (mode === 'image-compress' &&
+        typeof estimateImageCompressPreflight === 'function' &&
+        a.images && a.images.length) {
+      var s = imgSettings();
+      var key = preflightKey('image-compress', s.q, s.dpi);
+      if (state.preflightCache[key]) return;
+      var token = ++state.preflightToken;
       $('#size-images').textContent = 'Calibrating...';
-      estimateImageCompressPreflight(state.pdfBytes, a, imgQ, imgDpi).then(function(result) {
-        if (runId !== state.estimateRun) return;
-        state.estimates['image-compress'] = result;
-        setEstimateText($('#size-images'), result, a.totalSize);
-        updateTargetGuidance();
+      estimateImageCompressPreflight(state.pdfBytes, a, s.q, s.dpi).then(function(result) {
+        state.preflightCache[key] = result;
+        if (token !== state.preflightToken) return;
+        updateQuickEstimates();
       }).catch(function(err) {
         console.warn('Image estimate preflight failed:', err);
-        if (runId === state.estimateRun) setEstimateText($('#size-images'), imgQuick, a.totalSize);
+        if (token === state.preflightToken) updateQuickEstimates();
       });
+      return;
     }
 
-    if (typeof estimateFlattenPreflight === 'function') {
+    if (mode === 'flatten' && typeof estimateFlattenPreflight === 'function') {
+      var s2 = flatSettings();
+      var key2 = preflightKey('flatten', s2.q, s2.dpi);
+      if (state.preflightCache[key2]) return;
+      var token2 = ++state.preflightToken;
       $('#size-flatten').textContent = 'Calibrating...';
-      estimateFlattenPreflight(state.pdfBytes, a, flatQ, flatDpi).then(function(result) {
-        if (runId !== state.estimateRun) return;
-        state.estimates.flatten = result;
-        setEstimateText($('#size-flatten'), result, a.totalSize);
-        updateTargetGuidance();
+      estimateFlattenPreflight(state.pdfBytes, a, s2.q, s2.dpi).then(function(result) {
+        state.preflightCache[key2] = result;
+        if (token2 !== state.preflightToken) return;
+        updateQuickEstimates();
       }).catch(function(err) {
         console.warn('Flatten estimate preflight failed:', err);
-        if (runId === state.estimateRun) setEstimateText($('#size-flatten'), flatQuick, a.totalSize);
+        if (token2 === state.preflightToken) updateQuickEstimates();
       });
     }
   }
@@ -598,9 +659,19 @@
       $('#compress-percent').textContent = pct + '%';
       $('#compress-status').textContent = text;
     }).then(function(resultBytes) {
-      state.resultBytes = resultBytes;
-      var base = state.filename.replace(/\.pdf$/i, '');
-      state.resultFilename = base + '-compressed.pdf';
+      // Guard: if compression made the file bigger (or barely changed),
+      // discard the result and fall back to the original so users aren't
+      // offered a larger file for download.
+      if (resultBytes.byteLength >= state.pdfBytes.byteLength) {
+        state.resultBytes = state.pdfBytes;
+        state.resultFilename = state.filename;
+        state.compressionDidReduce = false;
+      } else {
+        state.resultBytes = resultBytes;
+        var base = state.filename.replace(/\.pdf$/i, '');
+        state.resultFilename = base + '-compressed.pdf';
+        state.compressionDidReduce = true;
+      }
       showDone();
     }).catch(function(err) {
       console.error('Compression failed:', err);
@@ -615,23 +686,21 @@
     var origSize = state.pdfBytes.byteLength;
     var newSize = state.resultBytes.byteLength;
     var reduction = origSize > 0 ? (1 - newSize / origSize) * 100 : 0;
-
-    var reduced = newSize < origSize;
+    var reduced = state.compressionDidReduce && newSize < origSize;
 
     $('#done-filename').textContent = state.resultFilename;
     $('#done-original').textContent = formatBytes(origSize);
     $('#done-compressed').textContent = formatBytes(newSize);
 
     var reductionEl = $('#done-reduction');
-    if (reduction >= 1) {
+    if (!state.compressionDidReduce) {
+      reductionEl.textContent = 'Not smaller';
+      reductionEl.className = 'done-value done-value-warning';
+    } else if (reduction >= 1) {
       reductionEl.textContent = reduction.toFixed(0) + '%';
       reductionEl.className = 'done-value done-value-success';
-    } else if (reduction > -1) {
-      reductionEl.textContent = 'No change';
-      reductionEl.className = 'done-value done-value-warning';
     } else {
-      var increase = Math.abs(reduction).toFixed(0);
-      reductionEl.textContent = '\u2191' + increase + '% larger';
+      reductionEl.textContent = 'No change';
       reductionEl.className = 'done-value done-value-warning';
     }
 
@@ -646,7 +715,11 @@
 
     var downloadBtn = $('#btn-download');
     if (downloadBtn) {
-      downloadBtn.textContent = reduced ? '\u21a7 Download' : 'Download anyway';
+      if (reduced) {
+        downloadBtn.textContent = '\u21a7 Download';
+      } else {
+        downloadBtn.textContent = 'Download original';
+      }
     }
 
     showScreen('done');
@@ -681,13 +754,13 @@
     newBar.classList.toggle('warning', reduction < 1);
 
     // Savings text
-    if (reduction >= 1) {
+    if (!state.compressionDidReduce) {
+      savings.innerHTML = '<strong class="warning">No compression possible at these settings</strong>  - this PDF is already well-optimised. Try a different mode or stronger settings.';
+    } else if (reduction >= 1) {
       var saved = origSize - newSize;
       savings.innerHTML = 'You saved <strong>' + formatBytes(saved) + '</strong> (' + reduction.toFixed(0) + '% smaller)';
-    } else if (reduction > -1) {
-      savings.innerHTML = 'File size is about the same  - this PDF was already well-optimised.';
     } else {
-      savings.innerHTML = '<strong class="warning">File got larger</strong>  - try a different compression mode.';
+      savings.innerHTML = 'File size is about the same  - this PDF was already well-optimised.';
     }
   }
 
@@ -746,8 +819,14 @@
     state.resultFilename = null;
     state.filename = null;
     state.selectedMode = 'metadata';
+    state.compressionDidReduce = true;
     state.estimates = {};
-    state.estimateRun++;
+    state.preflightCache = {};
+    state.preflightToken++;
+    if (state.preflightTimer) { clearTimeout(state.preflightTimer); state.preflightTimer = null; }
+    if (typeof QPDFOptimizer === 'object' && QPDFOptimizer && typeof QPDFOptimizer.release === 'function') {
+      QPDFOptimizer.release();
+    }
     var targetInput = $('#target-size-input');
     if (targetInput) targetInput.value = '';
   }

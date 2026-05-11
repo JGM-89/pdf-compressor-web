@@ -85,8 +85,16 @@ var QPDFOptimizer = (function() {
     return 'qpdf saved ' + formatBytes(inputBytes - outputBytes) + '.';
   }
 
+  // Drop our references to the qpdf module so the Emscripten instance
+  // (heap, FS, etc.) can be garbage collected. The compiled WASM may still
+  // sit in the browser's module cache, but its allocated runtime is freed.
+  function release() {
+    modulePromise = null;
+  }
+
   return {
     optimize: optimize,
-    describeSavings: describeSavings
+    describeSavings: describeSavings,
+    release: release
   };
 })();
