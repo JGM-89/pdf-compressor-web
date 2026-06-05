@@ -13,9 +13,11 @@ function estimateMetadataSize(analysis) {
 }
 
 function estimateImageCompressSize(analysis, quality, dpi) {
-  var imageBytes = analysis.categories.image.size;
+  var stats = getImageCompressionStats(analysis);
+  var imageBytes = stats.eligibleBytes;
+  var unchangedImageBytes = Math.max(0, analysis.categories.image.size - imageBytes);
   var removable = removableBytes(analysis);
-  var nonImageBytes = Math.max(1024, analysis.totalSize - imageBytes - removable);
+  var nonImageBytes = Math.max(1024, analysis.totalSize - analysis.categories.image.size - removable);
 
   var qScale = Math.pow(quality / 95, 0.6);
   var dpiScale = 1.0;
@@ -23,7 +25,7 @@ function estimateImageCompressSize(analysis, quality, dpi) {
     dpiScale = Math.min(1.0, Math.pow(dpi / 300, 2));
   }
 
-  return Math.round(nonImageBytes + imageBytes * qScale * dpiScale);
+  return Math.round(nonImageBytes + unchangedImageBytes + imageBytes * qScale * dpiScale);
 }
 
 function estimateFlattenSize(analysis, quality, dpi) {
@@ -47,6 +49,44 @@ function estimateWasmOptimizerSize(analysis) {
 function removableBytes(analysis) {
   return analysis.categories.metadata.size +
     (analysis.categories.photoshop ? analysis.categories.photoshop.size : 0);
+}
+
+function getImageCompressionStats(analysis) {
+  var stats = {
+    totalBytes: analysis.categories.image.size || 0,
+    totalCount: analysis.images ? analysis.images.length : 0,
+    eligibleBytes: 0,
+    eligibleCount: 0,
+    skippedBytes: 0,
+    skippedCount: 0,
+    unsupportedBytes: 0,
+    maskedBytes: 0,
+    riskyBytes: 0
+  };
+
+  if (!analysis.images) return stats;
+
+  for (var i = 0; i < analysis.images.length; i++) {
+    var img = analysis.images[i];
+    var size = img.rawSize || 0;
+    var supportedFilter = img.filter === 'DCTDecode' || img.filter === 'FlateDecode' || img.filter === '';
+    var masked = img.isMask || img.hasSMask || img.hasMask || img.hasDecode;
+    var risky = img.colorSpace === 'DeviceCMYK' || img.width < 8 || img.height < 8;
+    var eligible = supportedFilter && !masked && !risky;
+
+    if (eligible) {
+      stats.eligibleBytes += size;
+      stats.eligibleCount++;
+    } else {
+      stats.skippedBytes += size;
+      stats.skippedCount++;
+      if (!supportedFilter) stats.unsupportedBytes += size;
+      if (masked) stats.maskedBytes += size;
+      if (risky) stats.riskyBytes += size;
+    }
+  }
+
+  return stats;
 }
 
 function makeEstimateResult(estimate, spread, confidence, details) {

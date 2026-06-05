@@ -180,22 +180,26 @@ function classifyObject(pdfDoc, ref, obj, result, contentStreamRefs) {
 
     // Collect detailed image info for compression mode
     var filter = dictLookup(dict, PDFName.of('Filter'), ctx);
-    var filterName = pdfNameStr(filter);
-    // Handle array filters like [FlateDecode]
-    if (!filterName && filter && typeof filter.size === 'function') {
+    var filterName = '';
+    // Handle array filters like [FlateDecode] before stringifying the array.
+    if (filter && typeof filter.size === 'function') {
       if (filter.size() > 0) {
         filterName = pdfNameStr(resolveValue(filter.get(0), ctx));
       }
+    } else {
+      filterName = pdfNameStr(filter);
     }
 
     var width = pdfNumberVal(dictLookup(dict, PDFName.of('Width'), ctx));
     var height = pdfNumberVal(dictLookup(dict, PDFName.of('Height'), ctx));
     var bpc = pdfNumberVal(dictLookup(dict, PDFName.of('BitsPerComponent'), ctx));
-    var colorSpace = dictLookup(dict, PDFName.of('ColorSpace'), ctx);
-    var csName = pdfNameStr(colorSpace) || '';
     // Handle array color spaces like [ICCBased ref]
-    if (!csName && colorSpace && typeof colorSpace.size === 'function' && colorSpace.size() > 0) {
+    var colorSpace = dictLookup(dict, PDFName.of('ColorSpace'), ctx);
+    var csName = '';
+    if (colorSpace && typeof colorSpace.size === 'function' && colorSpace.size() > 0) {
       csName = pdfNameStr(resolveValue(colorSpace.get(0), ctx)) || 'Unknown';
+    } else {
+      csName = pdfNameStr(colorSpace) || '';
     }
 
     var isMask = false;

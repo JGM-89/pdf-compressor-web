@@ -8,6 +8,7 @@
           estimateMetadataSize, estimateImageCompressSize, estimateFlattenSize,
           estimateWasmOptimizerSize, estimateImageCompressPreflight,
           estimateFlattenPreflight, fixedEstimate, formatEstimateRange,
+          getImageCompressionStats,
           _compressLog */
 
 (function() {
@@ -274,13 +275,19 @@
     var imageShare = analysis.totalSize > 0 ? analysis.categories.image.size / analysis.totalSize : 0;
     var vectorShare = analysis.totalSize > 0 ?
       (analysis.categories.vector.size + analysis.categories.other.size) / analysis.totalSize : 0;
+    var imageStats = getImageCompressionStats(analysis);
+    var eligibleShare = imageStats.totalBytes > 0 ? imageStats.eligibleBytes / imageStats.totalBytes : 0;
+    var mostlyUnsupportedImages = hasImages && imageShare >= 0.25 && eligibleShare < 0.2;
 
     // Metadata strip estimate
     var metaKB = estimateMetadataSize(analysis) / 1024;
 
     // Determine badges
     var bestMode, smallestMode;
-    if (hasImages && imageShare >= 0.25) {
+    if (mostlyUnsupportedImages) {
+      bestMode = 'flatten';
+      smallestMode = null;
+    } else if (hasImages && imageShare >= 0.25) {
       bestMode = 'image-compress';
       smallestMode = vectorShare >= 0.35 ? 'flatten' : null;
     } else if (!hasImages && vectorShare >= 0.45) {
@@ -301,7 +308,11 @@
           '). For maximum compression, try \'Flatten to images\', but text won\'t be selectable.';
       }
     } else if (bestMode === 'flatten') {
-      text = 'Flattening to images is likely to reduce this PDF because it is heavy on vectors or page content. The estimate is calibrated from sampled page renders. Text becomes rasterised.';
+      if (mostlyUnsupportedImages) {
+        text = 'This PDF uses JPEG2000 or transparency-masked images that the embedded-image compressor cannot safely rewrite. Flattening renders the pages and is the reliable way to hit a much smaller target; text becomes rasterised.';
+      } else {
+        text = 'Flattening to images is likely to reduce this PDF because it is heavy on vectors or page content. The estimate is calibrated from sampled page renders. Text becomes rasterised.';
+      }
     } else if (bestMode === 'image-compress') {
       text = 'Image compression is the best first try for this file because most of its size is raster images. The estimate is calibrated from sampled images. Text and vectors stay untouched.';
     } else {
@@ -640,10 +651,18 @@
   function startCompression() {
     var mode = state.selectedMode;
     var options = {};
+    var renderFallback = false;
 
     if (mode === 'image-compress') {
       options.quality = parseInt($('#img-quality-slider').value, 10) || 75;
       options.dpi = getSelectedDPI('img-dpi');
+      var stats = getImageCompressionStats(state.analysis);
+      var eligibleShare = stats.totalBytes > 0 ? stats.eligibleBytes / stats.totalBytes : 1;
+      if (stats.totalBytes > 0 && eligibleShare < 0.2) {
+        mode = 'flatten';
+        renderFallback = true;
+        options.quality = Math.max(20, options.quality);
+      }
     } else if (mode === 'flatten') {
       options.quality = parseInt($('#flatten-quality-slider').value, 10) || 75;
       options.dpi = getSelectedDPI('flatten-dpi');
@@ -653,7 +672,9 @@
     $('#compress-progress-fill').classList.remove('indeterminate');
     $('#compress-progress-fill').style.width = '0%';
     $('#compress-percent').textContent = '0%';
-    $('#compress-status').textContent = 'Starting compression\u2026';
+    $('#compress-status').textContent = renderFallback ?
+      'Rendering pages because embedded images cannot be safely rewritten\u2026' :
+      'Starting compression\u2026';
 
     compress(mode, state.pdfBytes, state.analysis, options, function(fraction, text) {
       var pct = Math.round(fraction * 100);
