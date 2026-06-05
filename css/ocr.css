@@ -1,0 +1,119 @@
+/* ── OCR Tool Styles ──────────────────────────────────────────────────── */
+
+/* Options card wrapping the controls */
+.ocr-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+/* Control rows (label + control) */
+.control-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+
+.control-row + .control-row {
+  border-top: 1px solid var(--border-color);
+}
+
+.control-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 120px;
+}
+
+/* Language select */
+.ocr-select {
+  flex: 1;
+  min-width: 160px;
+  padding: 9px 12px;
+  background: var(--bg-dark, #0b1929);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.ocr-select:focus {
+  border-color: var(--accent-blue);
+}
+
+/* DPI radio group */
+.dpi-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dpi-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.dpi-option:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.dpi-option input {
+  accent-color: var(--accent-blue);
+  margin: 0;
+}
+
+/* Hints + notes */
+.ocr-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.ocr-engine-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--accent-blue-dim);
+  border: 1px solid var(--accent-blue);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.ocr-note {
+  font-size: 13px;
+  color: var(--text-primary);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid var(--warning, #f59e0b);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .control-label {
+    min-width: 0;
+    width: 100%;
+  }
+}

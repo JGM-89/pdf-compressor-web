@@ -206,6 +206,14 @@
       imgSection.style.display = 'none';
     }
 
+    // Suggest OCR for scanned / image-only PDFs (no text layer + real images).
+    // Toggle display (not the [hidden] attr) because the element carries an
+    // inline display value that would otherwise override [hidden].
+    var ocrSuggestion = $('#ocr-suggestion');
+    if (ocrSuggestion) {
+      ocrSuggestion.style.display = (a.hasText === false && hasImages) ? 'flex' : 'none';
+    }
+
     // Set default selected mode
     selectMode(rec.bestMode);
 

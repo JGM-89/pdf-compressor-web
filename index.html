@@ -148,6 +148,13 @@
         <p id="recommendation-text" class="recommendation-text"></p>
       </div>
 
+      <!-- OCR suggestion (shown for scanned / image-only PDFs) -->
+      <a id="ocr-suggestion" href="./ocr/"
+         style="display:none;align-items:center;gap:10px;background:var(--accent-blue-dim);border:1px solid var(--accent-blue);border-radius:10px;padding:12px 16px;margin-bottom:16px;text-decoration:none;color:var(--text-primary);font-size:13px;line-height:1.5;">
+        <span style="font-size:20px;flex-shrink:0;">&#128269;</span>
+        <span>This PDF looks scanned and has no searchable text. <strong>Make it searchable with OCR &rarr;</strong></span>
+      </a>
+
       <div class="target-card">
         <div class="target-row">
           <label for="target-size-input" class="target-label">Target size</label>
@@ -374,6 +381,9 @@
         </a>
         <a href="./protect/" style="display:flex;align-items:center;gap:8px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:10px 16px;text-decoration:none;color:var(--text-primary);font-size:13px;font-weight:600;min-width:140px;justify-content:center;transition:border-color 0.2s;">
           <span style="font-size:16px;">&#128274;</span> Protect
+        </a>
+        <a href="./ocr/" style="display:flex;align-items:center;gap:8px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;padding:10px 16px;text-decoration:none;color:var(--text-primary);font-size:13px;font-weight:600;min-width:140px;justify-content:center;transition:border-color 0.2s;">
+          <span style="font-size:16px;">&#128269;</span> OCR
         </a>
       </div>
     </section>
